@@ -12,6 +12,7 @@
 #define ENTRANCES 5
 #define EXITS 5
 #define PLATESIZE 6
+#define NUM_ALLOW_CARS 100
 
 struct boomgate {
 	pthread_mutex_t m;
