@@ -36,12 +36,15 @@ struct LPR {
     char plate[6];
 };
 
-struct levels{
+// localised (not in shared memory)
+struct level{
     struct LPR *lpr;
     struct tempnode *tnode;
     char falarm;
 
 };
 
-
+struct parkinglot{
+    struct level l[LEVELS];
+};
 
