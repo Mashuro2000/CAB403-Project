@@ -6,29 +6,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include "parking.h"
 
 int shm_fd;
 volatile void *shm;
-
-#define LEVELS 5
-#define ENTRANCES 5
-#define EXITS 5
-
-struct boomgate {
-	pthread_mutex_t m;
-	pthread_cond_t c;
-	char s;
-};
-struct parkingsign {
-	pthread_mutex_t m;
-	pthread_cond_t c;
-	char display;
-};
-
-struct tempnode {
-	int temperature;
-	struct tempnode *next;
-};
 
 
 int main(int argc, int * argv){
