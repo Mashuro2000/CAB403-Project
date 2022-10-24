@@ -36,6 +36,7 @@ struct LPR {
     char plate[6];
 };
 
+// localised (not in shared memory)
 struct level{
     struct LPR *lpr;
     struct tempnode *tnode;

@@ -14,28 +14,28 @@ volatile void *shm;
 // needed so that a car can be generated that is allowed
 char allowed_cars[NUM_ALLOW_CARS][PLATESIZE];
 
-//local linked list struct for cars within each level or waiting at entrance/exit
+// local linked list struct for cars within each level or waiting at entrance/exit
 // not in shared mem
 struct cars{
     char lplate[6];
     struct car *next;
 };
 
-// setup parking levels
+// setup parking levels, initial temp and sensor values
 void init(){
 
 }
 
 // read in license plates from file
-void read_allowed_plates(){
+void read_allowed_plates_from_file(){
 
 }
 
 // cars simulated locally in simulation file, but update LPR values
 // cars update LPR value of entrance, updates LPR of level it goes to, waits updates LPR of level it leaves, updates LPR of its chosen exit
 
-// 1 if allowed, 0 if not
-int checklicense(char *plate){
+// 1 if allowed, 0 if not, allows car generator to see if it has generated a car with the correct plate
+int checklicense_forcargen(char *plate){
 
 }
 // generate car, allocating license plate, 50% chance of being on allowed list
@@ -105,5 +105,10 @@ int main(int argc, int * argv){
 
     shm_fd = shm_open("PARKING", O_CREAT, 0);
 	shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+
+
+    	
+	munmap((void *)shm, 2920);
+	close(shm_fd);
 
 }

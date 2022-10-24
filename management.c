@@ -24,10 +24,20 @@ void display(){
 
 }
 
+//1 if allowed, 0 if not, allows management sytem to know whether to allow entry
+int checklicense_forentry(char *plate){
+
+}
+
 int main(int argc, int *argv){
     //read in license plate file
 
     // open shared memory
     shm_fd = shm_open("PARKING", O_RDWR, 0);
 	shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+
+
+    	
+	munmap((void *)shm, 2920);
+	close(shm_fd);
 }
