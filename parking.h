@@ -11,6 +11,7 @@
 #define LEVELS 5
 #define ENTRANCES 5
 #define EXITS 5
+#define PLATESIZE 6
 
 struct boomgate {
 	pthread_mutex_t m;
@@ -27,3 +28,19 @@ struct tempnode {
 	int temperature;
 	struct tempnode *next;
 };
+
+struct LPR {
+    pthread_mutex_t m;
+    pthread_cond_t c;
+    char plate[6];
+};
+
+struct levels{
+    struct LPR *lpr;
+    struct tempnode *tnode;
+    char falarm;
+
+};
+
+
+

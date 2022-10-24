@@ -11,8 +11,19 @@
 int shm_fd;
 volatile void *shm;
 
+struct car{
+    char lplate[6];
+    struct car *next;
+};
+
+// cars simulated locally in simulation file, but update LPR values
+// cars update LPR value of entrance, updates LPR of level it goes to, waits updates LPR of level it leaves, updates LPR of its chosen exit
+
+
 
 int main(int argc, int * argv){
     shm_fd = shm_open("PARKING", O_CREAT, 0);
 	shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+
+    int i = PLATESIZE;
 }
