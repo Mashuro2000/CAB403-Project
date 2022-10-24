@@ -21,6 +21,11 @@ struct cars{
     struct car *next;
 };
 
+// setup parking levels
+void init(){
+
+}
+
 // read in license plates from file
 void read_allowed_plates(){
 
@@ -29,17 +34,71 @@ void read_allowed_plates(){
 // cars simulated locally in simulation file, but update LPR values
 // cars update LPR value of entrance, updates LPR of level it goes to, waits updates LPR of level it leaves, updates LPR of its chosen exit
 
-// generate car 50% chance of being on allowed list
+// 1 if allowed, 0 if not
+int checklicense(char *plate){
+
+}
+// generate car, allocating license plate, 50% chance of being on allowed list
 // add to linked list of car queue at one of the entrances
 void generate_car(){
 
 }
 
-// move car, updates LPR of place where car moves to
-void move_car(struct LPR *leaving, struct LPR *entering){
+// enter carpark, updates LPR of place where car moves to
+void enter_carpark(struct cars * queue ,struct LPR *entrance, struct parkinglot plot){
 
 }
 
+void exit_carpark(struct cars * queue ,struct LPR *exit, struct level *lvl){
+    //update LPR as car exits
+
+    // cleans up memory for car
+}
+
+// get random time
+int randtime(int min, int max){
+
+}
+
+void simulate_car(){
+    generate_car();
+    // 
+}
+
+
+void *openboomgate(void *arg)
+{
+	struct boomgate *bg = arg;
+	pthread_mutex_lock(&bg->m);
+	for (;;) {
+		if (bg->s == 'C') {
+			bg->s = 'R';
+			pthread_cond_broadcast(&bg->c);
+		}
+		if (bg->s == 'O') {
+		}
+		pthread_cond_wait(&bg->c, &bg->m);
+	}
+	pthread_mutex_unlock(&bg->m);
+	
+}
+void *closeboomgate(void *arg){
+
+}
+
+void *change_temp(void *lvl_addr){
+
+}
+
+// trigger when simulating fire, aggressively change temperature on one level
+void *simulate_fire(void *lvl_addr){
+
+}
+
+// simulate environment (temps)
+void simulate_env(){
+    //seperate threads for changing temps on each level
+}
 
 int main(int argc, int * argv){
 

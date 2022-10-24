@@ -36,12 +36,14 @@ struct LPR {
     char plate[6];
 };
 
-struct levels{
+struct level{
     struct LPR *lpr;
     struct tempnode *tnode;
     char falarm;
 
 };
 
-
+struct parkinglot{
+    struct level l[LEVELS];
+};
 
