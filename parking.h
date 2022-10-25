@@ -11,7 +11,7 @@
 #define LEVELS 5
 #define ENTRANCES 5
 #define EXITS 5
-#define PLATESIZE 6
+#define PLATESIZE 7 //  6 character plate + null character
 #define NUM_ALLOW_CARS 100
 
 struct boomgate {

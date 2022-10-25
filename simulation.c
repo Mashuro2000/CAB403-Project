@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
 #include "parking.h"
 
 
@@ -17,18 +18,31 @@ char allowed_cars[NUM_ALLOW_CARS][PLATESIZE];
 // local linked list struct for cars within each level or waiting at entrance/exit
 // not in shared mem
 struct cars{
-    char lplate[6];
+    char lplate[PLATESIZE];
     struct car *next;
 };
 
 // setup parking levels, initial temp and sensor values
 void init(){
-
+	
 }
 
 // read in license plates from file
 void read_allowed_plates_from_file(){
+	FILE* fptr;
 
+	// open license plate files
+	fptr = fopen("plates.txt", "r");
+
+	if (fptr == NULL){
+		printf("Authorised Plates File not Found - Simulation\n");
+	}
+
+	char tmp;
+	for (int i = 0; i < NUM_ALLOW_CARS; i++){
+		fgets(allowed_cars[i], PLATESIZE, fptr);
+		fgetc(fptr); //consume new line character
+	}
 }
 
 // cars simulated locally in simulation file, but update LPR values
@@ -106,8 +120,14 @@ int main(int argc, int * argv){
     shm_fd = shm_open("PARKING", O_CREAT, 0);
 	shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
+	// TESTING SECTION
+	read_allowed_plates_from_file();
 
-    	
+	for(int i = 0; i < NUM_ALLOW_CARS; i++){
+		printf("%s\n", allowed_cars[i]);
+	}
+
+	// TESTING SECTION
 	munmap((void *)shm, 2920);
 	close(shm_fd);
 

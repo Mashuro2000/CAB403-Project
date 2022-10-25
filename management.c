@@ -24,6 +24,24 @@ void display(){
 
 }
 
+// read in license plates from file
+void read_allowed_plates_from_file(){
+	FILE* fptr;
+
+	// open license plate files
+	fptr = fopen("plates.txt", "r");
+
+	if (fptr == NULL){
+		printf("Authorised Plates File not Found - Simulation\n");
+	}
+
+	char tmp;
+	for (int i = 0; i < NUM_ALLOW_CARS; i++){
+		fgets(allowed_cars[i], PLATESIZE, fptr);
+		fgetc(fptr); //consume new line character
+	}
+}
+
 //1 if allowed, 0 if not, allows management sytem to know whether to allow entry
 int checklicense_forentry(char *plate){
 
