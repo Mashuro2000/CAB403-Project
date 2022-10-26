@@ -39,7 +39,7 @@ struct LPR {
 // localised (not in shared memory)
 struct level{
     struct LPR *lpr;
-    struct tempnode *tnode;
+    int tempsensor;
     char falarm;
 
 };

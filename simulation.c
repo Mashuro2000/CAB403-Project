@@ -21,6 +21,17 @@ struct cars{
     struct car *next;
 };
 
+// struct to pass address and a number to args
+struct addr_num_args{
+	void *addr;
+	int num;
+};
+
+struct addr_str_args{
+	void *addr;
+	char *str;
+};
+
 // read in license plates from file
 void read_allowed_plates_from_file(){
 	FILE* fptr;
@@ -100,8 +111,28 @@ void *closeboomgate(void *arg){
 }
 
 /**********************Car park Temperature *******************/
-void *change_temp(void *lvl_addr){
+void *change_temp(void *lvl_addr, int newtemp){
+	struct level *lvl = lvl_addr;
+	lvl->tempsensor = newtemp;
+	/*pthread_mutex_lock(&lvl->m);
+	for (;;) {
+		if (bg->s == 'C') {
+			bg->s = 'R';
+			pthread_cond_broadcast(&bg->c);
+		}
+		if (bg->s == 'O') {
+		}
+		pthread_cond_wait(&bg->c, &bg->m);
+	}
+	pthread_mutex_unlock(&bg->m);
+	*/
+}
 
+void *change_LPR(void *lvl_addr, char *plate){
+	struct level *lvl = lvl_addr;
+	pthread_mutex_lock(&lvl->lpr->m);
+	strcpy(lvl->lpr, plate);
+	pthread_mutex_unlock(&lvl->lpr->m);
 }
 
 // trigger when simulating fire, aggressively change temperature on one level
@@ -147,11 +178,13 @@ void simulate_env(){
     //seperate threads for changing temps on each level
 	pthread_t pthread1, pthread2, pthread3, pthread4, pthread5;
 
-	level1_tempThread = pthread_create(&thread1, NULL, simulate_temp, NULL); 
-	level2_tempThread = pthread_create(&thread2, NULL, simulate_temp, NULL);
-	level3_tempThread = pthread_create(&thread3, NULL, simulate_temp, NULL);
-	level4_tempThread = pthread_create(&thread4, NULL, simulate_temp, NULL);
-	level5_tempThread = pthread_create(&thread5, NULL, simulate_temp, NULL);
+	/*
+	level1_tempThread = pthread_create(&pthread1, NULL, simulate_temp, NULL); 
+	level2_tempThread = pthread_create(&pthread2, NULL, simulate_temp, NULL);
+	level3_tempThread = pthread_create(&pthread3, NULL, simulate_temp, NULL);
+	level4_tempThread = pthread_create(&pthread4, NULL, simulate_temp, NULL);
+	level5_tempThread = pthread_create(&pthread5, NULL, simulate_temp, NULL);
+	*/
 }
 
 
@@ -159,11 +192,26 @@ void simulate_env(){
 void init(){
 	
 	// set all temps to initial 25C
+
 	pthread_t *tempsetthreads = malloc(sizeof(pthread_t) * LEVELS);
 	for (int i = 0; i < ENTRANCES; i++) {
-		int addr = 288 * i + 96;
-		volatile struct boomgate *bg = shm + addr;
-		pthread_create(tempsetthreads + i, NULL, change_temp, bg);
+		volatile struct addr_num_args *args = malloc(sizeof(struct addr_num_args));
+		args->addr = shm + 288 * i + 96;
+		args->num = 25;
+		//volatile struct boomgate *bg = shm + *args->addraddr;
+		pthread_create(tempsetthreads + i, NULL, change_temp, args);
+
+		free(args);
+	}
+	pthread_t *tempsetthreads = malloc(sizeof(pthread_t) * LEVELS);
+	for (int i = 0; i < ENTRANCES; i++) {
+		volatile struct addr_num_args *args = malloc(sizeof(struct addr_num_args));
+		args->addr = shm + 288 * i + 96;
+		args->num = 25;
+		//volatile struct boomgate *bg = shm + *args->addraddr;
+		pthread_create(tempsetthreads + i, NULL, change_temp, args);
+
+		free(args);
 	}
 
 	// close all boomgates
