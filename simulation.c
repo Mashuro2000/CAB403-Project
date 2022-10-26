@@ -22,11 +22,6 @@ struct cars{
     struct car *next;
 };
 
-// setup parking levels, initial temp and sensor values
-void init(){
-	
-}
-
 // read in license plates from file
 void read_allowed_plates_from_file(){
 	FILE* fptr;
@@ -50,7 +45,12 @@ void read_allowed_plates_from_file(){
 
 // 1 if allowed, 0 if not, allows car generator to see if it has generated a car with the correct plate
 int checklicense_forcargen(char *plate){
-
+	for(int i = 0; i < NUM_ALLOW_CARS; i++){
+		if (strcmp(plate, allowed_cars[i]) == 0){
+			return 1;
+		}
+	}
+	return 0;
 }
 // generate car, allocating license plate, 50% chance of being on allowed list
 // add to linked list of car queue at one of the entrances
@@ -114,6 +114,33 @@ void simulate_env(){
     //seperate threads for changing temps on each level
 }
 
+
+// setup parking levels, initial temp and sensor values
+void init(){
+	
+	// set all temps to initial 25C
+	pthread_t *tempsetthreads = malloc(sizeof(pthread_t) * LEVELS);
+	for (int i = 0; i < ENTRANCES; i++) {
+		int addr = 288 * i + 96;
+		volatile struct boomgate *bg = shm + addr;
+		pthread_create(tempsetthreads + i, NULL, change_temp, bg);
+	}
+
+	// close all boomgates
+	pthread_t *boomgatethreads = malloc(sizeof(pthread_t) * (ENTRANCES + EXITS));
+	for (int i = 0; i < ENTRANCES; i++) {
+		int addr = 288 * i + 96;
+		volatile struct boomgate *bg = shm + addr;
+		pthread_create(boomgatethreads + i, NULL, closeboomgate, bg);
+	}
+	for (int i = 0; i < EXITS; i++) {
+		int addr = 192 * i + 1536;
+		volatile struct boomgate *bg = shm + addr;
+		pthread_create(boomgatethreads + ENTRANCES + i, NULL, closeboomgate, bg);
+	}
+}
+
+
 int main(int argc, int * argv){
 
 
@@ -127,6 +154,9 @@ int main(int argc, int * argv){
 		printf("%s\n", allowed_cars[i]);
 	}
 
+	if(checklicense_forcargen("510SLS")){
+		printf("Found car!\n");
+	}
 	// TESTING SECTION
 	munmap((void *)shm, 2920);
 	close(shm_fd);
