@@ -56,8 +56,15 @@ void exit_carpark(struct cars * queue ,struct LPR *exit, struct level *lvl){
 }
 
 // get random time
-int randtime(int min, int max){
+int randtime(int min, int max) {
+  /* srand(time(NULL));     I think this needs to be run in main*/ 
+  return rand()%(min-max);
+}
 
+int parktime() {
+  int value = randtime(100, 10000);
+  usleep(value * 1000); //Sleep between 100ms and 10000ms
+  return value; //return how long car was parked for billing purposes??
 }
 
 void simulate_car(){
@@ -66,25 +73,35 @@ void simulate_car(){
 }
 
 
-void *openboomgate(void *arg)
+void openboomgate(void *arg)
 {
-	struct boomgate *bg = arg;
-	pthread_mutex_lock(&bg->m);
-	for (;;) {
-		if (bg->s == 'C') {
-			bg->s = 'R';
-			pthread_cond_broadcast(&bg->c);
-		}
-		if (bg->s == 'O') {
-		}
-		pthread_cond_wait(&bg->c, &bg->m);
-	}
-	pthread_mutex_unlock(&bg->m);
-	
-}
-void *closeboomgate(void *arg){
+    struct boomgate *bg = arg;
+    pthread_mutex_lock(&bg->m);
+    for (;;) {
+      if (bg->s == 'R') {
+        usleep(10 * 1000); //simulate 10ms of waiting for gate to open
+        bg->s = 'O';
+        pthread_cond_broadcast(&bg->c);
+      }
+      pthread_cond_wait(&bg->c, &bg->m);
+    }
 
-}
+} 
+
+void closeboomgate(void *arg)
+{
+    struct boomgate *bg = arg;
+    pthread_mutex_lock(&bg->m);
+    for (;;) {
+      if (bg->s == 'L') {
+        usleep(10 * 1000); //simulate 10ms of waiting for gate to close
+        bg->s = 'C';
+        pthread_cond_broadcast(&bg->c);
+      }
+      pthread_cond_wait(&bg->c, &bg->m);
+    }
+
+} 
 
 void *change_temp(void *lvl_addr){
 
