@@ -8,7 +8,6 @@
 #include <fcntl.h>
 #include "parking.h"
 
-
 int shm_fd;
 volatile void *shm;
 // needed so that a car can be generated that is allowed
@@ -86,6 +85,7 @@ void *closeboomgate(void *arg){
 
 }
 
+/**********************Car park Temperature *******************/
 void *change_temp(void *lvl_addr){
 
 }
@@ -94,6 +94,40 @@ void *change_temp(void *lvl_addr){
 void *simulate_fire(void *lvl_addr){
 
 }
+
+void *temp(){
+    int delay = 0.002;
+    int Temp;
+    int baseTemp = 20, maxTemp = 58;
+ 
+    
+    srand(time(NULL));
+  
+    // Record the median temp of 5 recent temps as a smoothed temp value
+
+    //Fixed temp fire detection
+    //Fire alarm starts reading after 30 smoothed temps
+    //If 90% of smoothed temps is 58 degress or higher -> set off fire alarm
+
+    // Rate of fire detection
+    // if most recent temp is 8 degreese higher than most recent smoothed temp than set off alarm
+
+
+    //Create manual method of setting off fire alarm
+    for(;;){
+       Temp = (rand() % (maxTemp - baseTemp + 1)) + baseTemp;
+       if(Temp >= maxTemp) {
+
+           printf("Fire has started\n");
+           break; 
+       }
+       else{
+                printf("Temperature: %d degrees\n", Temp);
+                sleep(delay);        
+       }
+    }
+}
+
 
 // simulate environment (temps)
 void simulate_env(){
