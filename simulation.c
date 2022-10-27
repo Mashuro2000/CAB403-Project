@@ -111,9 +111,13 @@ void *closeboomgate(void *arg){
 }
 
 /**********************Car park Temperature *******************/
-void *change_temp(void *lvl_addr, int newtemp){
-	struct level *lvl = lvl_addr;
-	lvl->tempsensor = newtemp;
+void *change_temp(void *args){
+	struct addr_num_args *numargs = (struct addr_num_args *)args;
+	struct level *lvl = numargs->addr;
+
+	// no mutex lock required, only one thread at a time should be changing the temperature in simulation exe
+
+	lvl->tempsensor = numargs->num;
 	/*pthread_mutex_lock(&lvl->m);
 	for (;;) {
 		if (bg->s == 'C') {
@@ -128,10 +132,14 @@ void *change_temp(void *lvl_addr, int newtemp){
 	*/
 }
 
-void *change_LPR(void *lvl_addr, char *plate){
-	struct level *lvl = lvl_addr;
+//expects args with lvl address and number
+void *change_LPR(void *args){
+	struct addr_str_args *strargs;
+	strargs = (struct addr_str_args *)args;
+	struct level *lvl = strargs->addr;
+
 	pthread_mutex_lock(&lvl->lpr->m);
-	strcpy(lvl->lpr, plate);
+	strcpy(lvl->lpr, strargs->str);
 	pthread_mutex_unlock(&lvl->lpr->m);
 }
 
@@ -187,6 +195,9 @@ void simulate_env(){
 	*/
 }
 
+void set_firealarm(){
+	
+}
 
 // setup parking levels, initial temp and sensor values
 void init(){
@@ -194,22 +205,47 @@ void init(){
 	// set all temps to initial 25C
 
 	pthread_t *tempsetthreads = malloc(sizeof(pthread_t) * LEVELS);
-	for (int i = 0; i < ENTRANCES; i++) {
+	for (int i = 0; i < LEVELS; i++) {
 		volatile struct addr_num_args *args = malloc(sizeof(struct addr_num_args));
-		args->addr = shm + 288 * i + 96;
+		args->addr = shm + 104 * i + 2496; //temp sensors start at 2496, spaced by 104 bytes
 		args->num = 25;
 		//volatile struct boomgate *bg = shm + *args->addraddr;
 		pthread_create(tempsetthreads + i, NULL, change_temp, args);
 
 		free(args);
 	}
-	pthread_t *tempsetthreads = malloc(sizeof(pthread_t) * LEVELS);
-	for (int i = 0; i < ENTRANCES; i++) {
+
+	// set fire alarms on all levels to 0
+	pthread_t *falarmsetthreads = malloc(sizeof(pthread_t) * LEVELS);
+	for (int i = 0; i < LEVELS; i++) {
 		volatile struct addr_num_args *args = malloc(sizeof(struct addr_num_args));
-		args->addr = shm + 288 * i + 96;
-		args->num = 25;
+		args->addr = shm + 104 * i + 2498; //fire alarms start at 2498, spaced by 104 bytes
+		args->num = 0;
 		//volatile struct boomgate *bg = shm + *args->addraddr;
-		pthread_create(tempsetthreads + i, NULL, change_temp, args);
+		pthread_create(falarmsetthreads + i, NULL, change_temp, args);
+
+		free(args);
+	}
+
+	// set levels LPRs
+	pthread_t *LPRLevelssetthreads = malloc(sizeof(pthread_t) * LEVELS);
+	for (int i = 0; i < LEVELS; i++) {
+		volatile struct addr_str_args *args = malloc(sizeof(struct addr_str_args));
+		args->addr = shm + 104 * i + 2400;
+		strcpy(args->str, "------");
+		//volatile struct boomgate *bg = shm + *args->addraddr;
+		pthread_create(LPRLevelssetthreads + i, NULL, change_LPR, args);
+
+		free(args);
+	}
+
+	pthread_t *LPREntExsetthreads = malloc(sizeof(pthread_t) * (ENTRANCES + EXITS));
+	for (int i = 0; i < LEVELS; i++) {
+		volatile struct addr_str_args *args = malloc(sizeof(struct addr_str_args));
+		args->addr = shm + 288 * i + 0;
+		strcpy(args->str, "------");
+		//volatile struct boomgate *bg = shm + *args->addraddr;
+		pthread_create(LPREntExsetthreads + i, NULL, change_LPR, args);
 
 		free(args);
 	}
