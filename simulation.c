@@ -15,7 +15,7 @@
 #define STRING_LEN 700
 
 int shm_fd;
-volatile void *shm;
+void *shm; //volatile
 // needed so that a car can be generated that is allowed
 char allowed_cars[NUM_ALLOW_CARS][PLATESIZE];
 FILE *lps;
@@ -139,9 +139,12 @@ void generate_car(car_node head_car) {
 void *enter_carpark(void * arg) {	
 	// find the first car that joined the queue
 
-	struct two_addr * lpr_queue = arg;
-	struct LPR *lpr = lpr_queue->lpraddr;
-	struct cars * queue = lpr_queue->queueaddr;
+	printf("TEST CAR 0\n");
+	struct two_addr * lpr_queue = (struct two_addr *) arg;
+	struct LPR *lpr = (struct LPR *)lpr_queue->lpraddr;
+	struct cars *queue = (struct cars*)lpr_queue->queueaddr;
+
+	printf("%s %s\n", lpr->plate, queue->lplate);
 	do
 	{
 		if (queue->next == NULL)
@@ -150,19 +153,22 @@ void *enter_carpark(void * arg) {
 			// Enter car park and trigger lpr
 			srand(time(NULL));
 			int num = rand() % LEVELS;
-			char *sign = (char *)lpr + 192;
+			printf("TEST CAR1\n");
+			//char *sign = (char *)(lpr->plate + 280);
 
-			*sign = num + 'A';
+
+			//*sign = num + 'A';
 			//
 			
 			usleep(2);
 			pthread_mutex_lock(&lpr->m);
-			for (;;)
-			{
-				lpr->plate = queue->lplate;
+			//for (;;)
+			//
+				printf("TEST CAR 2\n");
+				strcpy(*lpr->plate, *queue->lplate);
 				pthread_cond_broadcast(&lpr->c);
 				pthread_cond_wait(&lpr->c, &lpr->m);
-			}
+			//}
 			pthread_mutex_unlock(&lpr->m);
 			
 
@@ -222,11 +228,12 @@ void simulate_car() {
 /**********************Car park Temperature *******************/
 void *change_temp(void *args){
 	struct addr_num_args *numargs = (struct addr_num_args *)args;
-	struct level *lvl = numargs->addr;
-
+	//struct level *lvl = numargs->addr;
+	int *temp = (int *)(numargs->addr);
 	// no mutex lock required, only one thread at a time should be changing the temperature in simulation exe
 
-	lvl->tempsensor = numargs->num;
+	*temp = numargs->num;
+	//lvl->tempsensor = numargs->num;
 }
 void *openboomgate(void *arg)
 {
@@ -246,6 +253,7 @@ void *openboomgate(void *arg)
 
 void *closeboomgate(void *arg)
 {
+	printf("BOOM GATE TEST 0\n");
     struct boomgate *bg = arg;
     pthread_mutex_lock(&bg->m);
     for (;;) {
@@ -259,15 +267,18 @@ void *closeboomgate(void *arg)
 
 } 
 
-//expects args with lvl address and number
+//expects args with LPR address and string
 void *change_LPR(void *args){
-	struct addr_str_args *strargs;
-	strargs = (struct addr_str_args *)args;
-	struct level *lvl = strargs->addr;
-
-	pthread_mutex_lock(&lvl->lpr->m);
-	strcpy(lvl->lpr->plate, strargs->str);
-	pthread_mutex_unlock(&lvl->lpr->m);
+	struct addr_str_args *strargs = (struct addr_str_args *)args;
+	struct LPR *lvl = (struct level *)(strargs->addr);
+	printf("LICENSE TO CHANGE TO %s\n", *strargs->str);
+	printf("CHANGE LPR 1 TEST %x\n", strargs->addr);
+	pthread_mutex_lock(&lvl->m);
+	printf("MUTEX LOCKED\n");
+	//strcpy(lvl->lpr->plate, strargs->str);
+	sprintf(lvl->plate, "%s", strargs->str);
+	pthread_mutex_unlock(&lvl->m);
+	printf("CHANGE LPR 2 TEST %x\n", args);
 }
 
 // trigger when simulating fire, aggressively change temperature on one level
@@ -328,24 +339,25 @@ void * set_firealarm(){
 
 // setup parking levels, initial temp and sensor values
 void init(){
-	
+	printf("TEST INIT 0\n");
 	// Initialise Mutex locks and condition vars for entrance and exit mutexs;
 	for (int i = 0; i < (3*ENTRANCES + 2*EXITS); i++){
 		int maddr = 96*i + 0;
-		pthread_mutex_t *m = (pthread_mutex_t *)shm + maddr;	
+		//pthread_mutex_t *m = (pthread_mutex_t *)(shm + maddr);	
 		pthread_mutexattr_t mattr;
 		pthread_mutexattr_init(&mattr);
 		pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
-		pthread_mutex_init(m, &mattr);
-
+		pthread_mutex_init((pthread_mutex_t*)(shm+maddr), &mattr);
+	
+		
 		int caddr = 96*i + 40;
-		pthread_cond_t *c = (pthread_cond_t *)shm + caddr;
+		pthread_cond_t *c = (pthread_cond_t *)(shm + caddr);
 		pthread_condattr_t cattr;
 		pthread_condattr_init(&cattr);
 		pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
 		pthread_cond_init(c, &cattr);
 
-		
+		printf("TEST INIT 1 Part %d\n", i);
 		//pthread_mutexattr_setpshared(m, );
 		//pthread_condattr_setpshared(c, PTHREAD_PROCESS_SHARED);
 
@@ -354,67 +366,72 @@ void init(){
 	for (int i = 0; i < LEVELS; i++)
 	{
 		int maddr = 104*i + 2400;
-		pthread_mutex_t *m = (pthread_mutex_t *)shm + maddr;
+		//pthread_mutex_t *m = (pthread_mutex_t *)(shm + maddr);
 		pthread_mutexattr_t mattr;
 		pthread_mutexattr_init(&mattr);
 		pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
-		pthread_mutex_init(m, &mattr);
+		pthread_mutex_init((pthread_mutex_t*)(shm+maddr), &mattr);
 
 		int caddr = 104*i + 2440;
-		pthread_cond_t *c = (pthread_cond_t *)shm + caddr;
+		pthread_cond_t *c = (pthread_cond_t *)(shm + caddr);
 		pthread_condattr_t cattr;
 		pthread_condattr_init(&cattr);
 		pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
 		pthread_cond_init(c, &cattr);
 
+		printf("TEST INIT 2 Part %d\n", i);
 		//pthread_mutexattr_setpshared(m, PTHREAD_PROCESS_SHARED);
 		//pthread_condattr_setpshared(c, PTHREAD_PROCESS_SHARED);
 
 	}	
 	// set all temps to initial 25C
 
-	pthread_t *tempsetthreads = malloc(sizeof(pthread_t) * LEVELS);
+	pthread_t tempsetthreads[LEVELS];
 	for (int i = 0; i < LEVELS; i++) {
 		volatile struct addr_num_args *args = malloc(sizeof(struct addr_num_args));
 		args->addr = shm + 104 * i + 2496; //temp sensors start at 2496, spaced by 104 bytes
 		args->num = 25;
 		//volatile struct boomgate *bg = shm + *args->addraddr;
-		pthread_create(tempsetthreads + i, NULL, change_temp, args);
-
-		free((void *)args);
+		pthread_create(&tempsetthreads[i], NULL, change_temp, args);
+		printf("TEST INIT 3 Part %d\n", i);
+		free(args);
 	}
 
 	// set fire alarms on all levels to 0
-	pthread_t *falarmsetthreads = malloc(sizeof(pthread_t) * LEVELS);
+	pthread_t falarmsetthreads[LEVELS];
 	for (int i = 0; i < LEVELS; i++) {
 		volatile struct addr_num_args *args = malloc(sizeof(struct addr_num_args));
 		args->addr = shm + 104 * i + 2498; //fire alarms start at 2498, spaced by 104 bytes
 		args->num = 0;
-		pthread_create(falarmsetthreads + i, NULL, set_firealarm, args);
+		pthread_create(&falarmsetthreads[i], NULL, change_temp, args);
 
+		printf("TEST INIT 4 Part %d\n", i);
 		free(args);
 	}
 
 	// set levels LPRs
-	pthread_t *LPRLevelssetthreads = malloc(sizeof(pthread_t) * LEVELS);
+	pthread_t LPRLevelssetthreads[LEVELS];
 	for (int i = 0; i < LEVELS; i++) {
 		volatile struct addr_str_args *args = malloc(sizeof(struct addr_str_args));
 		args->addr = shm + 104 * i + 2400;
-		strcpy(args->str, "------");
-		//volatile struct boomgate *bg = shm + *args->addraddr;
-		pthread_create(LPRLevelssetthreads + i, NULL, change_LPR, args);
-
+		printf("MEM ADDR 1 %x\n", args->addr);
+		printf("TEST INIT 5.0 Part %d\n", i);
+		args->str = malloc(sizeof(char)*7);
+		strcpy(args->str, "------\0");
+		pthread_create(&LPRLevelssetthreads[i], NULL, change_LPR, args);
+		printf("TEST INIT 5 Part %d\n", i);
 		free(args);
 	}
 
-	pthread_t *LPREntExsetthreads = malloc(sizeof(pthread_t) * (ENTRANCES + EXITS));
+	pthread_t LPREntExsetthreads[ENTRANCES + EXITS];
 	for (int i = 0; i < ENTRANCES + EXITS; i++) {
 		volatile struct addr_str_args *args = malloc(sizeof(struct addr_str_args));
 		args->addr = shm + 288 * i + 0;
-		strcpy(args->str, "------");
+		args->str = malloc(sizeof(char)*7);
+		strcpy(args->str, "------\0");
 		//volatile struct boomgate *bg = shm + *args->addraddr;
-		pthread_create(LPREntExsetthreads + i, NULL, change_LPR, args);
-
+		pthread_create(&LPREntExsetthreads[i], NULL, change_LPR, args);
+		printf("TEST INIT 6 Part %d\n", i);
 		free(args);
 	}
 
@@ -422,32 +439,36 @@ void init(){
 	pthread_t boomgatethreads[ENTRANCES + EXITS]; //= malloc(sizeof(pthread_t) * (ENTRANCES + EXITS));
 	for (int i = 0; i < ENTRANCES; i++) {
 		int addr = 288 * i + 96;
-		volatile struct boomgate *bg = shm + addr;
-		pthread_create(boomgatethreads[i], NULL, closeboomgate, bg);
+		volatile struct boomgate *bg = (shm + addr); //(struct boomgate *)
+		pthread_create(&boomgatethreads[i], NULL, closeboomgate, bg);
+		printf("TEST INIT 7 Part %d\n", i);
 	}
+
 	for (int i = 0; i < EXITS; i++) {
 		int addr = 192 * i + 1536;
 		volatile struct boomgate *bg = shm + addr;
-		pthread_create(boomgatethreads[ENTRANCES + i], NULL, closeboomgate, bg);
+		pthread_create(&boomgatethreads[ENTRANCES + i], NULL, closeboomgate, bg);
+		printf("TEST INIT 8 Part %d\n", i);
 	}
-
+	
 	for (int i = 0; i < LEVELS; i++) {
-		pthread_join(tempsetthreads + i, NULL);
+		printf("TEST INIT 9 Part %d\n", i);
+		pthread_join(&tempsetthreads[i], NULL);
 	}
 	for (int i = 0; i < LEVELS; i++) {
-		pthread_join(falarmsetthreads + i, NULL);
+		pthread_join(&falarmsetthreads[i], NULL);
 	}
 	for (int i = 0; i < LEVELS; i++) {
-		pthread_join(LPRLevelssetthreads + i, NULL);
+		pthread_join(&LPRLevelssetthreads[i], NULL);
 	}
 	for (int i = 0; i < ENTRANCES + EXITS; i++) {
-		pthread_join(LPREntExsetthreads + i, NULL);
+		pthread_join(&LPREntExsetthreads[i], NULL);
 	}
 	for (int i = 0; i < ENTRANCES; i++) {
-		pthread_join(boomgatethreads[i], NULL);
+		pthread_join(&boomgatethreads[i], NULL);
 	}
 	for (int i = 0; i < EXITS; i++) {
-		pthread_join(boomgatethreads[ENTRANCES + i], NULL);
+		pthread_join(&boomgatethreads[ENTRANCES + i], NULL);
 	}
 }
 
@@ -455,9 +476,37 @@ void init(){
 int main(int argc, int * argv){
 
 	printf("TEST\n");
-    shm_fd = shm_open("PARKING", O_CREAT, 0);
-	shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-	init();
+
+    if ((shm_fd = shm_open("PARKING", O_CREAT | O_RDWR, 0666)) < 0) perror("shm_open");
+
+	ftruncate(shm_fd, SHMSZ);
+	if ((shm = mmap(0, SHMSZ, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); //(volatile void *) 
+	// MANUAL MUTEX INIT, TAKE OUT AFTER FIXING INIT()
+	for (int i = 0; i < (3*ENTRANCES + 2*EXITS); i++){
+		int maddr = 96*i + 0;
+		//pthread_mutex_t *m = (pthread_mutex_t *)(shm + maddr);	
+		pthread_mutexattr_t mattr;
+		pthread_mutexattr_init(&mattr);
+		pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+		pthread_mutex_init((pthread_mutex_t*)(shm+maddr), &mattr);
+	
+		
+		int caddr = 96*i + 40;
+		pthread_cond_t *c = (pthread_cond_t *)(shm + caddr);
+		pthread_condattr_t cattr;
+		pthread_condattr_init(&cattr);
+		pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+		pthread_cond_init(c, &cattr);
+
+		printf("TEST INIT 1 Part %d\n", i);
+		//pthread_mutexattr_setpshared(m, );
+		//pthread_condattr_setpshared(c, PTHREAD_PROCESS_SHARED);
+
+	}
+
+	printf("TEST1.5\n");
+	//init();
+	printf("TEST 2\n");
 
 	// Initialise srand()
 	srand(time(NULL));
@@ -465,23 +514,43 @@ int main(int argc, int * argv){
 
 	// TESTING SECTION
 	// first value in linked list will be a initial value
+	/*
 	car_node firstcar;
 	car_node *head;
 	strcpy(firstcar.lplate, carlist[0]);
 	firstcar.next = NULL;
 	head = &firstcar;
+	*/
+	car_node * n = (car_node *)malloc(sizeof(car_node));
+	strcpy(n->lplate, carlist[0]);
+	n->next = NULL;
 	
 	pthread_t enterparkthread = malloc(sizeof(pthread_t));
 
-	struct two_addr args;
-	args.lpraddr = shm + 96;
-	args.queueaddr = head;
-	pthread_create(enterparkthread, NULL, enter_carpark, &args);
+	struct two_addr *args = (struct two_addr *)malloc(sizeof(struct two_addr));
+	args->lpraddr = shm + 0;
+	args->queueaddr = n;
 
-	char *testplate = (char *)shm + 88;
-	printf("Licnese plate %s\n", *testplate);
+	car_node * carptr = (car_node *)args->queueaddr;
+	printf("%s\n", carptr->lplate);
+	printf("TEST 3\n");
+	//pthread_create(enterparkthread, NULL, enter_carpark, &args);
+	enter_carpark(&args);
 
-	generate_car(firstcar);
+	//strcpy((char *)(shm + 88), "000000");
+	//sprintf((shm+88), "%s", "000000");
+	printf("TEST4\n");
+	//pthread_join(enterparkthread, NULL);
+
+	printf("TEST 4.5\n");
+	char *ptr = (char *)(shm + 88);
+	printf("TEST 5\n");
+
+	//printf("%x\n", shm);
+	//char *testplate = (char *)(shm + 88);
+	printf("License plate %s\n", *ptr);
+
+	//generate_car(firstcar);
 	
 	/*read_allowed_plates_from_file();
 
