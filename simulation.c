@@ -22,13 +22,13 @@ FILE *lps;
 char carlist[STRING_LEN][LENGTH_OF_NUMBERPLATE];	
 
 
-typedef struct cars car_node;
 
 // local linked list struct for cars within each level or waiting at entrance/exit
 // not in shared mem
+typedef struct cars car_node;
 struct cars{
     char lplate[PLATESIZE];
-    struct car *next;
+    struct cars *next;
 };
 
 // struct to pass address and a number to args
@@ -82,7 +82,7 @@ int checklicense_forcargen(char *plate){
 // returns the new head car of the list
 // returns null if there was an error
 car_node *addCar(car_node *head, char *car) {
-	car_node *new = (car_node *)malloc(sizeof(car_node));
+	struct cars *new = (struct cars *)malloc(sizeof(car_node));
 
 	if (new == NULL)
     {
@@ -150,7 +150,9 @@ void *enter_carpark(void * arg) {
 			// Enter car park and trigger lpr
 			srand(time(NULL));
 			int num = rand() % LEVELS;
-			char *sign = 
+			char *sign = (char *)lpr + 192;
+
+			*sign = num + 'A';
 			//
 			
 			usleep(2);
@@ -226,7 +228,7 @@ void *change_temp(void *args){
 
 	lvl->tempsensor = numargs->num;
 }
-void openboomgate(void *arg)
+void *openboomgate(void *arg)
 {
     struct boomgate *bg = arg;
     pthread_mutex_lock(&bg->m);
@@ -238,10 +240,11 @@ void openboomgate(void *arg)
       }
       pthread_cond_wait(&bg->c, &bg->m);
     }
+	pthread_mutex_unlock(&bg->m);
 
 } 
 
-void closeboomgate(void *arg)
+void *closeboomgate(void *arg)
 {
     struct boomgate *bg = arg;
     pthread_mutex_lock(&bg->m);
@@ -263,7 +266,7 @@ void *change_LPR(void *args){
 	struct level *lvl = strargs->addr;
 
 	pthread_mutex_lock(&lvl->lpr->m);
-	strcpy(lvl->lpr, strargs->str);
+	strcpy(lvl->lpr->plate, strargs->str);
 	pthread_mutex_unlock(&lvl->lpr->m);
 }
 
@@ -319,7 +322,7 @@ void simulate_env() {
 	*/
 }
 
-void set_firealarm(){
+void * set_firealarm(){
 	
 }
 
@@ -329,15 +332,22 @@ void init(){
 	// Initialise Mutex locks and condition vars for entrance and exit mutexs;
 	for (int i = 0; i < (3*ENTRANCES + 2*EXITS); i++){
 		int maddr = 96*i + 0;
-		pthread_mutex_t *m = (pthread_mutex_t *)shm + maddr;
-		pthread_mutex_init(m, NULL);
+		pthread_mutex_t *m = (pthread_mutex_t *)shm + maddr;	
+		pthread_mutexattr_t mattr;
+		pthread_mutexattr_init(&mattr);
+		pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+		pthread_mutex_init(m, &mattr);
 
 		int caddr = 96*i + 40;
-		pthread_cond_t *c = (pthread_mutex_t *)shm + caddr;
-		pthread_cond_init(c, NULL);
+		pthread_cond_t *c = (pthread_cond_t *)shm + caddr;
+		pthread_condattr_t cattr;
+		pthread_condattr_init(&cattr);
+		pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+		pthread_cond_init(c, &cattr);
 
-		pthread_mutexattr_setpshared(m, PTHREAD_PROCESS_SHARED);
-		pthread_condattr_setpshared(c, PTHREAD_PROCESS_SHARED);
+		
+		//pthread_mutexattr_setpshared(m, );
+		//pthread_condattr_setpshared(c, PTHREAD_PROCESS_SHARED);
 
 	}
 
@@ -345,14 +355,20 @@ void init(){
 	{
 		int maddr = 104*i + 2400;
 		pthread_mutex_t *m = (pthread_mutex_t *)shm + maddr;
-		pthread_mutex_init(m, NULL);
+		pthread_mutexattr_t mattr;
+		pthread_mutexattr_init(&mattr);
+		pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+		pthread_mutex_init(m, &mattr);
 
 		int caddr = 104*i + 2440;
-		pthread_cond_t *c = (pthread_mutex_t *)shm + caddr;
-		pthread_cond_init(c, NULL);
+		pthread_cond_t *c = (pthread_cond_t *)shm + caddr;
+		pthread_condattr_t cattr;
+		pthread_condattr_init(&cattr);
+		pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+		pthread_cond_init(c, &cattr);
 
-		pthread_mutexattr_setpshared(m, PTHREAD_PROCESS_SHARED);
-		pthread_condattr_setpshared(c, PTHREAD_PROCESS_SHARED);
+		//pthread_mutexattr_setpshared(m, PTHREAD_PROCESS_SHARED);
+		//pthread_condattr_setpshared(c, PTHREAD_PROCESS_SHARED);
 
 	}	
 	// set all temps to initial 25C
@@ -365,7 +381,7 @@ void init(){
 		//volatile struct boomgate *bg = shm + *args->addraddr;
 		pthread_create(tempsetthreads + i, NULL, change_temp, args);
 
-		free(args);
+		free((void *)args);
 	}
 
 	// set fire alarms on all levels to 0
@@ -403,16 +419,16 @@ void init(){
 	}
 
 	// close all boomgates
-	pthread_t *boomgatethreads = malloc(sizeof(pthread_t) * (ENTRANCES + EXITS));
+	pthread_t boomgatethreads[ENTRANCES + EXITS]; //= malloc(sizeof(pthread_t) * (ENTRANCES + EXITS));
 	for (int i = 0; i < ENTRANCES; i++) {
 		int addr = 288 * i + 96;
 		volatile struct boomgate *bg = shm + addr;
-		pthread_create(boomgatethreads + i, NULL, closeboomgate, bg);
+		pthread_create(boomgatethreads[i], NULL, closeboomgate, bg);
 	}
 	for (int i = 0; i < EXITS; i++) {
 		int addr = 192 * i + 1536;
 		volatile struct boomgate *bg = shm + addr;
-		pthread_create(boomgatethreads + ENTRANCES + i, NULL, closeboomgate, bg);
+		pthread_create(boomgatethreads[ENTRANCES + i], NULL, closeboomgate, bg);
 	}
 
 	for (int i = 0; i < LEVELS; i++) {
@@ -428,34 +444,46 @@ void init(){
 		pthread_join(LPREntExsetthreads + i, NULL);
 	}
 	for (int i = 0; i < ENTRANCES; i++) {
-		pthread_join(boomgatethreads + i, NULL);
+		pthread_join(boomgatethreads[i], NULL);
 	}
 	for (int i = 0; i < EXITS; i++) {
-		pthread_join(boomgatethreads + ENTRANCES + i, NULL);
+		pthread_join(boomgatethreads[ENTRANCES + i], NULL);
 	}
 }
 
 
 int main(int argc, int * argv){
 
-
+	printf("TEST\n");
     shm_fd = shm_open("PARKING", O_CREAT, 0);
 	shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-
+	init();
 
 	// Initialise srand()
 	srand(time(NULL));
 
+
+	// TESTING SECTION
 	// first value in linked list will be a initial value
 	car_node firstcar;
 	car_node *head;
 	strcpy(firstcar.lplate, carlist[0]);
 	firstcar.next = NULL;
 	head = &firstcar;
+	
+	pthread_t enterparkthread = malloc(sizeof(pthread_t));
+
+	struct two_addr args;
+	args.lpraddr = shm + 96;
+	args.queueaddr = head;
+	pthread_create(enterparkthread, NULL, enter_carpark, &args);
+
+	char *testplate = (char *)shm + 88;
+	printf("Licnese plate %s\n", *testplate);
 
 	generate_car(firstcar);
-	// TESTING SECTION
-	read_allowed_plates_from_file();
+	
+	/*read_allowed_plates_from_file();
 
 	for(int i = 0; i < NUM_ALLOW_CARS; i++){
 		printf("%s\n", allowed_cars[i]);
@@ -463,7 +491,9 @@ int main(int argc, int * argv){
 
 	if(checklicense_forcargen("510SLS")){
 		printf("Found car!\n");
-	}
+	}*/
+
+
 	// TESTING SECTION
 	munmap((void *)shm, 2920);
 	close(shm_fd);
