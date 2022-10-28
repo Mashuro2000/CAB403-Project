@@ -164,6 +164,7 @@ int main()
 	emergency_mode:
 	fprintf(stderr, "*** ALARM ACTIVE ***\n");
 	
+
 	// Handle the alarm system and open boom gates
 	// Activate alarms on all levels
 	for (int i = 0; i < LEVELS; i++) {

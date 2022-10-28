@@ -277,6 +277,29 @@ void set_firealarm(){
 // setup parking levels, initial temp and sensor values
 void init(){
 	
+	// Initialise Mutex locks and condition vars for entrance and exit mutexs;
+	for (int i = 0; i < (3*ENTRANCES + 2*EXITS); i++){
+		int maddr = 96*i + 0;
+		pthread_mutex_t *m = (pthread_mutex_t *)shm + maddr;
+		pthread_mutex_init(m, NULL);
+
+		int caddr = 96*i + 40;
+		pthread_cond_t *c = (pthread_mutex_t *)shm + caddr;
+		pthread_cond_init(c, NULL);
+
+	}
+
+	for (int i = 0; i < LEVELS; i++)
+	{
+		int maddr = 104*i + 2400;
+		pthread_mutex_t *m = (pthread_mutex_t *)shm + maddr;
+		pthread_mutex_init(m, NULL);
+
+		int caddr = 104*i + 2440;
+		pthread_cond_t *c = (pthread_mutex_t *)shm + caddr;
+		pthread_cond_init(c, NULL);
+
+	}	
 	// set all temps to initial 25C
 
 	pthread_t *tempsetthreads = malloc(sizeof(pthread_t) * LEVELS);
@@ -315,7 +338,7 @@ void init(){
 	}
 
 	pthread_t *LPREntExsetthreads = malloc(sizeof(pthread_t) * (ENTRANCES + EXITS));
-	for (int i = 0; i < LEVELS; i++) {
+	for (int i = 0; i < ENTRANCES + EXITS; i++) {
 		volatile struct addr_str_args *args = malloc(sizeof(struct addr_str_args));
 		args->addr = shm + 288 * i + 0;
 		strcpy(args->str, "------");
@@ -337,6 +360,26 @@ void init(){
 		volatile struct boomgate *bg = shm + addr;
 		pthread_create(boomgatethreads + ENTRANCES + i, NULL, closeboomgate, bg);
 	}
+
+	for (int i = 0; i < LEVELS; i++) {
+		pthread_join(tempsetthreads + i, NULL);
+	}
+	for (int i = 0; i < LEVELS; i++) {
+		pthread_join(falarmsetthreads + i, NULL);
+	}
+	for (int i = 0; i < LEVELS; i++) {
+		pthread_join(LPRLevelssetthreads + i, NULL);
+	}
+	for (int i = 0; i < ENTRANCES + EXITS; i++) {
+		pthread_join(LPREntExsetthreads + i, NULL);
+	}
+
+	for (int i = 0; i < ENTRANCES; i++) {
+		pthread_join(boomgatethreads + i, NULL);
+	}
+	for (int i = 0; i < EXITS; i++) {
+		pthread_join(boomgatethreads + ENTRANCES + i, NULL);
+	}
 }
 
 
@@ -345,6 +388,10 @@ int main(int argc, int * argv){
 
     shm_fd = shm_open("PARKING", O_CREAT, 0);
 	shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+
+
+	// Initialise srand()
+	srand(time(NULL));
 
 	// first value in linked list will be a initial value
 	car_node firstcar;
