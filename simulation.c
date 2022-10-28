@@ -19,13 +19,13 @@ volatile void *shm;
 // needed so that a car can be generated that is allowed
 char allowed_cars[NUM_ALLOW_CARS][PLATESIZE];
 FILE *lps;
-char carlist[STRING_LEN][LENGTH_OF_NUMBERPLATE];	
+char carlist[STRING_LEN][LENGTH_OF_NUMBERPLATE];
 
 
-typedef struct cars car_node;
 
 // local linked list struct for cars within each level or waiting at entrance/exit
 // not in shared mem
+<<<<<<< HEAD
 struct cars{
     char lplate[PLATESIZE];
     struct car *next;
@@ -58,12 +58,29 @@ void read_allowed_plates_from_file(){
 		fgets(allowed_cars[i], PLATESIZE, fptr);
 		fgetc(fptr); //consume new line character
 	}
+=======
+struct cars
+{
+	char *lplate;
+	struct cars *next;
+};
+
+// setup parking levels, initial temp and sensor values
+void init()
+{
+}
+
+// read in license plates from file
+void read_allowed_plates_from_file()
+{
+>>>>>>> origin/martins-branch
 }
 
 // cars simulated locally in simulation file, but update LPR values
 // cars update LPR value of entrance, updates LPR of level it goes to, waits updates LPR of level it leaves, updates LPR of its chosen exit
 
 // 1 if allowed, 0 if not, allows car generator to see if it has generated a car with the correct plate
+<<<<<<< HEAD
 int checklicense_forcargen(char *plate){
 	for(int i = 0; i < NUM_ALLOW_CARS; i++){
 		if (strcmp(plate, allowed_cars[i]) == 0){
@@ -71,15 +88,21 @@ int checklicense_forcargen(char *plate){
 		}
 	}
 	return 0;
+=======
+int checklicense_forcargen(char *plate)
+{
+>>>>>>> origin/martins-branch
 }
 
 // function for genereate car to add to linked list
 // returns the new head car of the list
 // returns null if there was an error
-car_node *addCar(car_node *head, char *car) {
-	car_node *new = (car_node *)malloc(sizeof(car_node));
+struct cars *addCar(struct cars *head, char *car)
+{
+	struct cars *new = (struct cars *)malloc(sizeof(struct cars));
 
 	if (new == NULL)
+<<<<<<< HEAD
     {
         return NULL;
     }
@@ -88,28 +111,43 @@ car_node *addCar(car_node *head, char *car) {
     strcpy(new->lplate,car);
     new->next = head;
     return new;
+=======
+	{
+		return NULL;
+	}
+
+	// insert new node
+	new->lplate = car;
+	new->next = head;
+	return new;
+>>>>>>> origin/martins-branch
 }
 
 // generate car, allocating license plate, 50% chance of being on allowed list
 // add to linked list of car queue at one of the entrances
 // returns the head of the linked list
-void generate_car(car_node head_car) {
+void generate_car(struct cars head_car)
+{
 	srand(time(NULL));
 	bool tf = (rand() % 2) != 0;
 
-
-	if (tf) {
+	if (tf)
+	{
 		printf("from list\n");
 		srand(time(NULL));
 		addCar(&head_car, carlist[rand() % 101]);
-	} else {
+	}
+	else
+	{
 		srand(time(NULL));
 		char randcar[6];
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 3; i++)
+		{
 			int num = (rand() % (57 - 48 + 1)) + 48;
 			randcar[i] = (char)num;
 		}
-		for (int i = 3; i < 6; i++) {
+		for (int i = 3; i < 6; i++)
+		{
 			int num = (rand() % (90 - 65 + 1)) + 65;
 			randcar[i] = num;
 		}
@@ -124,22 +162,69 @@ void generate_car(car_node head_car) {
 		// 	printf("%c\n", randcar[i]);
 		// 	printf("%d\n", randcar[i]);
 		// }
-		
 	}
 }
 
 // enter carpark, updates LPR of place where car moves to
-void *enter_carpark(struct cars * queue ,struct LPR *entrance, struct parkinglot plot) {
-	
+void *enter_carpark(struct cars *queue, struct LPR *entrance, struct parkinglot plot, void *arg)
+{
+	// find the first car that joined the queue
+	do
+	{
+		if (queue->next == NULL)
+		{
+			// Enter car park and trigger lpr
+			srand(time(NULL));
+			int num = rand() % LEVELS;
+			struct LPR *lpr = arg;
+			usleep(2);
+			pthread_mutexattr_setpshared(&lpr->m, PTHREAD_PROCESS_SHARED);
+			pthread_condattr_getpshared(&lpr->c, PTHREAD_PROCESS_SHARED);
+			pthread_mutex_lock(&lpr->m);
+			for (;;)
+			{
+				lpr->plate = queue->lplate;
+				pthread_cond_broadcast(&lpr->c);
+				pthread_cond_wait(&lpr->c, &lpr->m);
+			}
+			pthread_mutex_unlock(&lpr->m);
+			
+
+			// delete from queue once in the carpark
+			struct cars *previous = NULL;
+			struct cars *current = queue;
+			while (current != NULL)
+			{
+				if (strcmp(queue->lplate, current->lplate) == 0)
+				{
+					struct cars *newhead = queue;
+					if (previous == NULL) // first item in list
+						newhead = current->next;
+					else
+						previous->next = current->next;
+					free(current);
+					return newhead;
+				}
+				previous = current;
+				current = current->next;
+			}
+
+			// name not found
+			return queue;
+		}
+		queue = queue->next;
+	} while (queue->next != NULL);
 }
 
-void exit_carpark(struct cars * queue ,struct LPR *exit, struct level *lvl) {
-    //update LPR as car exits
+void *exit_carpark(struct cars *queue, struct LPR *exit, struct level *lvl)
+{
+	// update LPR as car exits
 
-    // cleans up memory for car
+	// cleans up memory for car
 }
 
 // get random time
+<<<<<<< HEAD
 int randtime(int min, int max) {
   /* srand(time(NULL));     I think this needs to be run in main*/ 
   return rand()%(min-max);
@@ -149,12 +234,18 @@ int parktime() {
   int value = randtime(100, 10000);
   usleep(value * 1000); //Sleep between 100ms and 10000ms
   return value; //return how long car was parked for billing purposes??
+=======
+int randtime(int min, int max)
+{
+>>>>>>> origin/martins-branch
 }
 
-void simulate_car() {
-    // 
+void simulate_car()
+{
+	//
 }
 
+<<<<<<< HEAD
 
 /**********************Car park Temperature *******************/
 void *change_temp(void *args){
@@ -167,14 +258,26 @@ void *change_temp(void *args){
 	/*pthread_mutex_lock(&lvl->m);
 	for (;;) {
 		if (bg->s == 'C') {
+=======
+void *openboomgate(void *arg)
+{
+	struct boomgate *bg = arg;
+	pthread_mutex_lock(&bg->m);
+	for (;;)
+	{
+		if (bg->s == 'C')
+		{
+>>>>>>> origin/martins-branch
 			bg->s = 'R';
 			pthread_cond_broadcast(&bg->c);
 		}
-		if (bg->s == 'O') {
+		if (bg->s == 'O')
+		{
 		}
 		pthread_cond_wait(&bg->c, &bg->m);
 	}
 	pthread_mutex_unlock(&bg->m);
+<<<<<<< HEAD
 	*/
 }
 void openboomgate(void *arg)
@@ -216,11 +319,20 @@ void *change_LPR(void *args){
 	pthread_mutex_lock(&lvl->lpr->m);
 	strcpy(lvl->lpr, strargs->str);
 	pthread_mutex_unlock(&lvl->lpr->m);
+=======
+}
+void *closeboomgate(void *arg)
+{
+}
+
+void *change_temp(void *lvl_addr)
+{
+>>>>>>> origin/martins-branch
 }
 
 // trigger when simulating fire, aggressively change temperature on one level
-void *simulate_fire(void *lvl_addr) {
-
+void *simulate_fire(void *lvl_addr)
+{
 }
 
 void *simulate_temp(){
@@ -257,6 +369,7 @@ void *simulate_temp(){
 }
 
 // simulate environment (temps)
+<<<<<<< HEAD
 void simulate_env() {
     //seperate threads for changing temps on each level
 	pthread_t pthread1, pthread2, pthread3, pthread4, pthread5;
@@ -397,6 +510,37 @@ int main(int argc, int * argv){
 	car_node firstcar;
 	car_node *head;
 	strcpy(firstcar.lplate, carlist[0]);
+=======
+void simulate_env()
+{
+	// seperate threads for changing temps on each level
+}
+
+int main(int argc, char *argv[])
+{
+	shm_fd = shm_open("PARKING", O_CREAT, 0);
+	shm = (volatile void *)mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+
+	// Read txt file for car list
+
+	FILE *textfile;
+	char line[LENGTH_OF_NUMBERPLATE];
+	int i = 0;
+	textfile = fopen("plates.txt", "r");
+	while (fgets(line, LENGTH_OF_NUMBERPLATE, textfile) && i < STRING_LEN)
+	{
+		for (int j = 0; j < 6; j++)
+		{
+			carlist[i][j] = line[j];
+		}
+		i++;
+	}
+
+	// first value in linked list will be a initial value
+	struct cars firstcar;
+	struct cars *head;
+	firstcar.lplate = carlist[0];
+>>>>>>> origin/martins-branch
 	firstcar.next = NULL;
 	head = &firstcar;
 
@@ -404,6 +548,7 @@ int main(int argc, int * argv){
 	// TESTING SECTION
 	read_allowed_plates_from_file();
 
+<<<<<<< HEAD
 	for(int i = 0; i < NUM_ALLOW_CARS; i++){
 		printf("%s\n", allowed_cars[i]);
 	}
@@ -412,6 +557,8 @@ int main(int argc, int * argv){
 		printf("Found car!\n");
 	}
 	// TESTING SECTION
+=======
+>>>>>>> origin/martins-branch
 	munmap((void *)shm, 2920);
 	close(shm_fd);
 	return 0;
