@@ -33,7 +33,7 @@ struct tempnode {
 struct LPR {
     pthread_mutex_t m;
     pthread_cond_t c;
-    char plate[6];
+    char *plate;
 };
 
 // localised (not in shared memory)
