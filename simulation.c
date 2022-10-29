@@ -321,7 +321,6 @@ void *change_LPR(void *args){
 	pthread_mutex_unlock(&lvl->m);
 	printf("CHANGE LPR 2 TEST %x\n", args);
 
-	free(args);
 }
 
 // trigger when simulating fire, aggressively change temperature on one level
@@ -377,23 +376,58 @@ void simulate_env() {
 }
 
 void * set_firealarm(void * args){
-	
+
+	char lvl = ((char *)args)[0];
+	char status = ((char *)args)[1];
+
+	lvl_tmpalrm_addr[lvl]->falarm = status;
 }
 
 void cleanup(){
+
+	// Destroy mutexes
+	for (int i = 0; i < ENTRANCES; i++){
+		pthread_mutex_destroy(&ent_lpr_addr[i]->m);
+		pthread_mutex_destroy(&ent_boom_addr[i]->m);
+		pthread_mutex_destroy(&ent_info_addr[i]->m);
+
+		pthread_cond_destroy(&ent_lpr_addr[i]->c);
+		pthread_cond_destroy(&ent_info_addr[i]->c);
+		pthread_cond_destroy(&ent_boom_addr[i]->c);
+
+	}
+
+	for (int i = 0; i < EXITS; i++){
+		pthread_mutex_destroy(&ext_lpr_addr[i]->m);
+		pthread_mutex_destroy(&ext_boom_addr[i]->m);
+
+		pthread_cond_destroy(&ext_lpr_addr[i]->c);
+		pthread_cond_destroy(&ext_boom_addr[i]->c);
+	}
+
+
+	for (int i = 0; i < LEVELS; i++){
+		pthread_mutex_destroy(&lvl_lpr_addr[i]->m);
+
+		pthread_cond_destroy(&lvl_lpr_addr[i]->c);
+	}
+
+
+	// Unmap memory
+	// unmap entrances
 	for (int i = 1; i < ENTRANCES; i++){
 		munmap(ent_lpr_addr[i] + ENT_GAP*i, sizeof(LPR)); 
 		munmap(ent_boom_addr[i] + ENT_GAP*i, sizeof(boomgate)); 
 		munmap(ent_info_addr[i] + ENT_GAP*i, sizeof(infosign)); 
 	}
 
-	// map exits
+	// unmap exits
 	for (int i = 0; i < EXITS; i++){
 		munmap(ext_lpr_addr[i] + EXT_GAP*i, sizeof(LPR)); 
 		munmap(ext_boom_addr[i] + EXT_GAP*i, sizeof(boomgate)); 	
 	}
 
-	// map levels
+	// unmap levels
 	for (int i = 0; i < LEVELS; i++){
 		munmap(lvl_lpr_addr[i] + LVL_GAP*i, sizeof(LPR)); 
 		munmap(lvl_tmpalrm_addr[i] + LVL_GAP*i, sizeof(temp_alarm));
@@ -411,25 +445,30 @@ void init(){
 	if ((ent_lpr_addr[0] = mmap(0, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
 
 	// MAP rest of entrances
-	for (int i = 1; i < ENTRANCES; i++){
-		if ((ent_lpr_addr[i] = mmap(ent_lpr_addr[0] + ENT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+
+	for(int i = 1; i < ENTRANCES; i++){
+		if ((ent_lpr_addr[i] = (LPR *)mmap(ent_lpr_addr[0] + ENT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+	}
+	for (int i = 0; i < ENTRANCES; i++){
+		if ((ent_boom_addr[i] = (boomgate *)mmap(ent_lpr_addr[0] +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ent_info_addr[i] = (infosign *)mmap(ent_lpr_addr[0] +sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
 	}
 
 	// map exits
 	for (int i = 0; i < EXITS; i++){
-		if ((ext_lpr_addr[i] = mmap(ent_lpr_addr[0]+ EXT_OFFSET + EXT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((ext_boom_addr[i] = mmap(ent_lpr_addr[0] + EXT_OFFSET +sizeof(LPR) + EXT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 	
+		if ((ext_lpr_addr[i] = (LPR *)mmap(ent_lpr_addr[0]+ EXT_OFFSET + EXT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ext_boom_addr[i] = (boomgate *)mmap(ent_lpr_addr[0] + EXT_OFFSET +sizeof(LPR) + EXT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 	
 	}
 
 	// map levels
 	for (int i = 0; i < LEVELS; i++){
-		if ((lvl_lpr_addr[i] = mmap(ent_lpr_addr[0]+ LVL_OFFSET + LVL_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((lvl_tmpalrm_addr[i] = mmap(ent_lpr_addr[0] + LVL_OFFSET + sizeof(LPR) + LVL_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 	
+		if ((lvl_lpr_addr[i] = (LPR *)mmap(ent_lpr_addr[0]+ LVL_OFFSET + LVL_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((lvl_tmpalrm_addr[i] = (temp_alarm *)mmap(ent_lpr_addr[0] + LVL_OFFSET + sizeof(LPR) + LVL_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 	
 	}
 
 	// initialise mutexes
+	
+	// mutex shared attributes
 	pthread_mutexattr_t mattr;
 	pthread_mutexattr_init(&mattr);
 	pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
@@ -458,12 +497,12 @@ void init(){
 		pthread_cond_init(&ext_boom_addr[i]->c, &cattr);
 	}
 
-
 	for (int i = 0; i < LEVELS; i++){
 		pthread_mutex_init(&lvl_lpr_addr[i]->m, &mattr);
 
 		pthread_cond_init(&lvl_lpr_addr[i]->c, &cattr);
 	}
+
 
 	// destroy attributes after initialising mutexes
 	pthread_mutexattr_destroy(&mattr);
@@ -528,18 +567,21 @@ void init(){
 		pthread_create(&tempsetthreads[i], NULL, change_temp, &args);
 		printf("TEST INIT 3 Part %d\n", i);
 	}
-	/*
+	
 	// set fire alarms on all levels to 0
 	pthread_t falarmsetthreads[LEVELS];
 	for (int i = 0; i < LEVELS; i++) {
-		volatile struct addr_num_args *args = malloc(sizeof(struct addr_num_args));
-		args->addr = shm + 104 * i + 2498; //fire alarms start at 2498, spaced by 104 bytes
-		args->num = 0;
-		pthread_create(&falarmsetthreads[i], NULL, change_temp, args);
+		//volatile struct addr_num_args *args = malloc(sizeof(struct addr_num_args));
+		//args->addr = shm + 104 * i + 2498; //fire alarms start at 2498, spaced by 104 bytes
+		//args->num = 0;
+		int args[2];
+		args[0] = 0; // status
+		args[1] = i; // lvl
+		pthread_create(&falarmsetthreads[i], NULL, set_firealarm, args);
 
 		printf("TEST INIT 4 Part %d\n", i);
 	}
-
+	/*
 	// set levels LPRs
 	pthread_t LPRLevelssetthreads[LEVELS];
 	for (int i = 0; i < LEVELS; i++) {
@@ -583,11 +625,11 @@ void init(){
 	*/
 	for (int i = 0; i < LEVELS; i++) {
 		printf("TEST INIT 9 Part %d\n", i);
-		pthread_join(&tempsetthreads[i], NULL);
-	}/*
+		pthread_join(tempsetthreads[i], NULL);
+	}
 	for (int i = 0; i < LEVELS; i++) {
 		pthread_join(&falarmsetthreads[i], NULL);
-	}
+	}/*
 	for (int i = 0; i < LEVELS; i++) {
 		pthread_join(&LPRLevelssetthreads[i], NULL);
 	}
