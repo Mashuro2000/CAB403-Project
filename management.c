@@ -31,12 +31,14 @@ void init()
 		perror("mmap");
 
 	// MAP rest of entrances
-	for(int i = 1; i < ENTRANCES; i++){
-		if ((ent_lpr_addr[i] = (LPR *)mmap(ent_lpr_addr[0] + ENT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-	}
-	for (int i = 0; i < ENTRANCES; i++){
-		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+	for (int i = 0; i < ENTRANCES; i++)
+	{
+		if ((ent_lpr_addr[i] = mmap(ent_lpr_addr[0] + ENT_GAP * i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
+			perror("mmap");
+		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] + sizeof(LPR) + ENT_GAP * i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
+			perror("mmap");
+		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] + sizeof(LPR) + sizeof(boomgate) + ENT_GAP * i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
+			perror("mmap");
 	}
 
 	// map exits
@@ -208,6 +210,25 @@ void htab_destroy(htab *h)
 	h->size = 0;
 }
 
+//parking billing is done by 5 cents for every millisecond car is at carpark from entering to exit
+//Calculate and create the bill txt file
+void billing(){
+
+	//open file
+	FILE *fptr;
+
+	fptr = fopen("billing.txt", "a");
+
+	//to do - write fuction to get how much revenue
+
+	//Write license plate and how much its parking cost by accessing shm data
+	fprintf(fptr, "%s $%.2f \n");
+	fclose(fptr);
+
+
+}
+
+
 // Managment system can only read sensors and keep track of cars that way, along with issuing commands to
 // boom gates and display screens, and time keeping and generating billing
 
@@ -218,12 +239,66 @@ void display()
 	// current state of each LPR
 	// total billing revenue recorded by manager
 	// temp sensors
+
+    for(;;)
+	{	
+		//Capacity number/20
+		printf("\n");
+   		printf("Level 1 Capacity: %d/%d \n");
+		printf("Level 2 Capacity: %d/%d \n");
+		printf("Level 3 Capacity: %d/%d \n");
+		printf("Level 4 Capacity: %d/%d \n");
+		printf("Level 5 Capacity: %d/%d \n");
+
+		//Entrance boom gate current status
+		printf("\n");
+		printf("Entrance 1: %c \t\n");
+		printf("Entrance 2: %c \t\n");
+		printf("Entrance 3: %c \t\n");
+		printf("Entrance 4: %c \t\n");
+		printf("Entrance 5: %c \t\n");
+
+		//Exit boom gate current status
+		printf("\n");
+		printf("Exit 1: %c \t\n");
+		printf("Exit 2: %c \t\n");
+		printf("Exit 3: %c \t\n");
+		printf("Exit 4: %c \t\n");
+		printf("Exit 5: %c \t\n");
+
+
+		//current temp 
+		printf("\n");
+   		printf("Level 1 Temperature: %d \n");
+		printf("Level 2 Temperature: %d \n");
+		printf("Level 3 Temperature: %d \n");
+		printf("Level 4 Temperature: %d \n");
+		printf("Level 5 Temperature: %d \n");
+		
+		//Alarm status 1 = on 0 = false
+		printf("\n");
+		printf("Level 1 Alarm: %d \n");
+		printf("Level 2 Alarm: %d \n");
+		printf("Level 3 Alarm: %d \n");
+		printf("Level 4 Alarm: %d \n");
+		printf("Level 5 Alarm: %d \n");
+
+		//How much money system has made
+		printf("\n");
+		printf("Revenue: %d");
+
+		printf("\n");
+		usleep(5000);
+		system("clear");
+		
+	}
 }
 
 // read in license plates from file
 void read_allowed_plates_from_file()
 {
 	FILE *fptr;
+	char ch;
 
 	// open license plate files
 	fptr = fopen("plates.txt", "r");
@@ -232,6 +307,9 @@ void read_allowed_plates_from_file()
 	{
 		printf("Authorised Plates File not Found - Simulation\n");
 	}
+	else{
+		printf("Authorised Plates File Found\n");
+	}
 
 	char tmp;
 	for (int i = 0; i < NUM_ALLOW_CARS; i++)
@@ -239,6 +317,7 @@ void read_allowed_plates_from_file()
 		fgets(allowed_cars[i], PLATESIZE, fptr);
 		fgetc(fptr); // consume new line character
 	}
+	
 }
 
 // 1 if allowed, 0 if not, allows management sytem to know whether to allow entry
@@ -277,8 +356,9 @@ int main(int argc, char **argv)
 	// open shared memory
 	shm_fd = shm_open("PARKING", O_RDWR, 0666);
 	// shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-	init();
-
+	//init();
+	//display();
+	//billing();
 	// munmap((void *)shm, 2920);
 
 	cleanup();

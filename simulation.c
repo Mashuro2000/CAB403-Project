@@ -320,6 +320,8 @@ void *change_LPR(void *args){
 	char *newplate = (char *)argin->str;
 
 	
+	//pthread_mutex_unlock(&lpradd->m);
+	pthread_mutex_lock(&lpradd->m);
 	printf("Current License: ");
 	print_plate(lpradd->plate);printf("\n");
 	printf("MUTEX ADD2 %x\n", &lpradd->m);
@@ -327,10 +329,6 @@ void *change_LPR(void *args){
 	
 	printf("LICENSE TO CHANGE TO ");
 	print_plate(newplate); printf("\n");
-	
-	pthread_mutex_unlock(&lpradd->m);
-	pthread_mutex_lock(&lpradd->m);
-	//pthread_mutex_lock(&lpradd->m);
 	printf("MUTEX LOCKED\n");
 	
 	//srcpy(lvl->lpr->plate, strargs->str);
@@ -344,6 +342,29 @@ void *change_LPR(void *args){
 	pthread_mutex_unlock(&lpradd->m);
 	printf("MUTEX UNLOCKED\n");
 	//printf("%d", pthread_self());
+
+	free(args);
+
+
+}
+
+//TESTING remove print functions to view one thread
+void *change_LPR2(void *args){
+	//struct addr_str_args *strargs = (struct addr_str_args *)args;
+	//struct LPR *lvl = (struct level *)(strargs->addr);
+
+	struct addr_str_args *argin = (struct addr_str_args *)args;
+	LPR *lpradd;
+	lpradd = (LPR *)argin->addr;
+	char *newplate = (char *)argin->str;
+	
+	//pthread_mutex_unlock(&lpradd->m);
+	pthread_mutex_lock(&lpradd->m);
+
+	copy_plate(lpradd->plate, newplate);
+
+	pthread_mutex_unlock(&lpradd->m);
+
 
 	free(args);
 
@@ -507,11 +528,11 @@ void init(){
 	// entrance mutexes
 	for (int i = 0; i < ENTRANCES; i++){
 		pthread_mutex_init(&ent_lpr_addr[i]->m, &mattr);
-		pthread_mutex_unlock(&ent_lpr_addr[i]->m);
+		//pthread_mutex_unlock(&ent_lpr_addr[i]->m);
 		pthread_mutex_init(&ent_boom_addr[i]->m, &mattr);
-		pthread_mutex_unlock(&ent_boom_addr[i]->m);
+		//pthread_mutex_unlock(&ent_boom_addr[i]->m);
 		pthread_mutex_init(&ent_info_addr[i]->m, &mattr);
-		pthread_mutex_unlock(&ent_info_addr[i]->m);
+		//pthread_mutex_unlock(&ent_info_addr[i]->m);
 
 		pthread_cond_init(&ent_lpr_addr[i]->c, &cattr);
 		pthread_cond_init(&ent_boom_addr[i]->c, &cattr);
@@ -521,9 +542,9 @@ void init(){
 
 	for (int i = 0; i < EXITS; i++){
 		pthread_mutex_init(&ext_lpr_addr[i]->m, &mattr);
-		pthread_mutex_unlock(&ext_lpr_addr[i]->m);
+		//pthread_mutex_unlock(&ext_lpr_addr[i]->m);
 		pthread_mutex_init(&ext_boom_addr[i]->m, &mattr);
-		pthread_mutex_unlock(&ext_boom_addr[i]->m);
+		//pthread_mutex_unlock(&ext_boom_addr[i]->m);
 
 		pthread_cond_init(&ext_lpr_addr[i]->c, &cattr);
 		pthread_cond_init(&ext_boom_addr[i]->c, &cattr);
@@ -531,7 +552,7 @@ void init(){
 
 	for (int i = 0; i < LEVELS; i++){
 		pthread_mutex_init(&lvl_lpr_addr[i]->m, &mattr);
-		pthread_mutex_unlock(&lvl_lpr_addr[i]->m);
+		//pthread_mutex_unlock(&lvl_lpr_addr[i]->m);
 
 		pthread_cond_init(&lvl_lpr_addr[i]->c, &cattr);
 	}
@@ -622,6 +643,27 @@ void init(){
 	for (int i = 0; i < LEVELS; i++) {
 		struct addr_str_args *args = (struct addr_str_args *)malloc(sizeof(struct addr_str_args));//volatile 
 		//TESTING ON ONE PIECE OF MEMORY
+		args->addr = lvl_lpr_addr[i];
+		//args->addr = lvl_lpr_addr[i];
+		//printf("MEM ADDR 1 %x\n", args->addr);
+		printf("TEST INIT 5.0 Part %d\n", i);
+		args->str = malloc(sizeof(char)*6);
+		sprintf(args->str, "--%d---", i);
+		//copy_plate(args->str, i);
+		copy_plate(lvl_lpr_addr[i]->plate, "123456");
+		printf("SETTING CURRENT LICENSE ");
+		print_plate(lvl_lpr_addr[i]->plate);printf("\n");
+		//strcpy(args->str, "------\0");
+		printf("MUTEX ADD1 %x\n", lvl_lpr_addr[i]->m);
+		if (pthread_create(&LPRLevelsetthreads[i], NULL, change_LPR2, args) != 0){
+			perror("pthread error");
+		}
+		
+		printf("TEST INIT 5 Part %d\n", i);
+	}/*
+	for (int i = 1; i < LEVELS; i++) {
+		struct addr_str_args *args = (struct addr_str_args *)malloc(sizeof(struct addr_str_args));//volatile 
+		//TESTING ON ONE PIECE OF MEMORY
 		args->addr = lvl_lpr_addr[0];
 		//args->addr = lvl_lpr_addr[i];
 		//printf("MEM ADDR 1 %x\n", args->addr);
@@ -634,12 +676,13 @@ void init(){
 		print_plate(lvl_lpr_addr[i]->plate);printf("\n");
 		//strcpy(args->str, "------\0");
 		printf("MUTEX ADD1 %x\n", lvl_lpr_addr[i]->m);
-		if (pthread_create(&LPRLevelsetthreads[i], NULL, change_LPR, (void *)args) != 0){
+		if (pthread_create(&LPRLevelsetthreads[i], NULL, change_LPR2, (void *)args) != 0){
 			perror("pthread error");
 		}
 		
 		printf("TEST INIT 5 Part %d\n", i);
-	}/*
+	}*/
+	/*
 	pthread_t LPRExitsetthreads[EXITS];
 	for (int i = 0; i < EXITS; i++) {
 		volatile struct addr_str_args *args = malloc(sizeof(struct addr_str_args));
