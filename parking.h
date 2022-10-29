@@ -11,8 +11,9 @@
 #define LEVELS 5
 #define ENTRANCES 5
 #define EXITS 5
-#define PLATESIZE 6
+#define PLATESIZE 7 //  6 character plate + null character
 #define NUM_ALLOW_CARS 100
+#define SHMSZ 2920
 
 struct boomgate {
 	pthread_mutex_t m;
@@ -33,17 +34,17 @@ struct tempnode {
 struct LPR {
     pthread_mutex_t m;
     pthread_cond_t c;
-    char plate[6];
+    char *plate;
 };
 
-// localised (not in shared memory)
 struct level{
     struct LPR *lpr;
-    struct tempnode *tnode;
+    int tempsensor;
     char falarm;
 
 };
 
+// localised (not in shared memory)
 struct parkinglot{
     struct level l[LEVELS];
 };
