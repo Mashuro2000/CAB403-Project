@@ -204,8 +204,12 @@ void *enter_carpark(void * arg) {
 // void args 
 void exit_carpark(struct cars * queue ,struct LPR *exit, struct level *lvl) {
     //update LPR as car exits
+  usleep(randtime(100, 10000) * 1000); //Park for time between 100 - 10000ms
+  usleep(10 * 1000); //Takes the car 10ms to drive to a random exit
 
-    // cleans up memory for car
+  //Still need to update LPR
+  free(queue); //<-- may be wrong
+
 }
 
 // get random time
@@ -553,11 +557,17 @@ int main(int argc, int * argv){
 	//generate_car(firstcar);
 	
 	/*read_allowed_plates_from_file();
+<<<<<<< HEAD
 
 	for(int i = 0; i < NUM_ALLOW_CARS; i++){
 		printf("%s\n", allowed_cars[i]);
 	}
 
+=======
+	for(int i = 0; i < NUM_ALLOW_CARS; i++){
+		printf("%s\n", allowed_cars[i]);
+	}
+>>>>>>> origin/matt-branch
 	if(checklicense_forcargen("510SLS")){
 		printf("Found car!\n");
 	}*/
@@ -567,4 +577,8 @@ int main(int argc, int * argv){
 	munmap((void *)shm, 2920);
 	close(shm_fd);
 	return 0;
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin/matt-branch
