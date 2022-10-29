@@ -319,21 +319,31 @@ void *change_LPR(void *args){
 	lpradd = (LPR *)argin->addr;
 	char *newplate = (char *)argin->str;
 
-	printf("LICENSE TO CHANGE TO ");
-	print_plate(newplate); printf("\n");
+	
 	printf("Current License: ");
 	print_plate(lpradd->plate);printf("\n");
 	printf("MUTEX ADD2 %x\n", &lpradd->m);
 	printf("MUTEX ADD3 %x\n", &lvl_lpr_addr[0]->m);
 	
+	printf("LICENSE TO CHANGE TO ");
+	print_plate(newplate); printf("\n");
+	
+	pthread_mutex_unlock(&lpradd->m);
 	pthread_mutex_lock(&lpradd->m);
+	//pthread_mutex_lock(&lpradd->m);
 	printf("MUTEX LOCKED\n");
-
+	
 	//srcpy(lvl->lpr->plate, strargs->str);
 	//srintf(->plate, "%s", strargs->str);
+
 	copy_plate(lpradd->plate, newplate);
+	usleep(100);
+	printf("NEW LICENSE: ");
+	print_plate(lvl_lpr_addr[0]->plate); printf("\n");
+
 	pthread_mutex_unlock(&lpradd->m);
-	
+	printf("MUTEX UNLOCKED\n");
+	//printf("%d", pthread_self());
 
 	free(args);
 
@@ -487,8 +497,8 @@ void init(){
 	
 	// mutex shared attributes
 	pthread_mutexattr_t mattr;
-	pthread_mutexattr_init(&mattr);
-	pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+	if (pthread_mutexattr_init(&mattr)) perror("pthread mutex attribute");
+	if (pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED)) perror("pthread mutex attribute set pshared");
 
 	pthread_condattr_t cattr;
 	pthread_condattr_init(&cattr);
@@ -497,8 +507,11 @@ void init(){
 	// entrance mutexes
 	for (int i = 0; i < ENTRANCES; i++){
 		pthread_mutex_init(&ent_lpr_addr[i]->m, &mattr);
+		pthread_mutex_unlock(&ent_lpr_addr[i]->m);
 		pthread_mutex_init(&ent_boom_addr[i]->m, &mattr);
+		pthread_mutex_unlock(&ent_boom_addr[i]->m);
 		pthread_mutex_init(&ent_info_addr[i]->m, &mattr);
+		pthread_mutex_unlock(&ent_info_addr[i]->m);
 
 		pthread_cond_init(&ent_lpr_addr[i]->c, &cattr);
 		pthread_cond_init(&ent_boom_addr[i]->c, &cattr);
@@ -508,7 +521,9 @@ void init(){
 
 	for (int i = 0; i < EXITS; i++){
 		pthread_mutex_init(&ext_lpr_addr[i]->m, &mattr);
+		pthread_mutex_unlock(&ext_lpr_addr[i]->m);
 		pthread_mutex_init(&ext_boom_addr[i]->m, &mattr);
+		pthread_mutex_unlock(&ext_boom_addr[i]->m);
 
 		pthread_cond_init(&ext_lpr_addr[i]->c, &cattr);
 		pthread_cond_init(&ext_boom_addr[i]->c, &cattr);
@@ -516,6 +531,7 @@ void init(){
 
 	for (int i = 0; i < LEVELS; i++){
 		pthread_mutex_init(&lvl_lpr_addr[i]->m, &mattr);
+		pthread_mutex_unlock(&lvl_lpr_addr[i]->m);
 
 		pthread_cond_init(&lvl_lpr_addr[i]->c, &cattr);
 	}
@@ -603,13 +619,16 @@ void init(){
 	
 	// set levels LPRs
 	pthread_t LPRLevelsetthreads[LEVELS];
-	for (int i = 0; i < 1; i++) {
+	for (int i = 0; i < LEVELS; i++) {
 		struct addr_str_args *args = (struct addr_str_args *)malloc(sizeof(struct addr_str_args));//volatile 
-		args->addr = lvl_lpr_addr[i];
+		//TESTING ON ONE PIECE OF MEMORY
+		args->addr = lvl_lpr_addr[0];
+		//args->addr = lvl_lpr_addr[i];
 		//printf("MEM ADDR 1 %x\n", args->addr);
 		printf("TEST INIT 5.0 Part %d\n", i);
 		args->str = malloc(sizeof(char)*6);
-		copy_plate(args->str, "------");
+		sprintf(args->str, "--%d---", i);
+		//copy_plate(args->str, i);
 		copy_plate(lvl_lpr_addr[i]->plate, "123456");
 		printf("SETTING CURRENT LICENSE ");
 		print_plate(lvl_lpr_addr[i]->plate);printf("\n");
