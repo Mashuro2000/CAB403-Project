@@ -210,6 +210,25 @@ void htab_destroy(htab *h)
 	h->size = 0;
 }
 
+//parking billing is done by 5 cents for every millisecond car is at carpark from entering to exit
+//Calculate and create the bill txt file
+void billing(){
+
+	//open file
+	FILE *fptr;
+
+	fptr = fopen("billing.txt", "a");
+
+	//to do - write fuction to get how much revenue
+
+	//Write license plate and how much its parking cost by accessing shm data
+	fprintf(fptr, "%s $%.2f \n");
+	fclose(fptr);
+
+
+}
+
+
 // Managment system can only read sensors and keep track of cars that way, along with issuing commands to
 // boom gates and display screens, and time keeping and generating billing
 
@@ -269,8 +288,8 @@ void display()
 		printf("Revenue: %d");
 
 		printf("\n");
-		system("cls");
 		usleep(5000);
+		system("clear");
 		
 	}
 }
@@ -337,8 +356,9 @@ int main(int argc, char **argv)
 	// open shared memory
 	shm_fd = shm_open("PARKING", O_RDWR, 0666);
 	// shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-	init();
-	
+	//init();
+	//display();
+	//billing();
 	// munmap((void *)shm, 2920);
 
 	cleanup();
