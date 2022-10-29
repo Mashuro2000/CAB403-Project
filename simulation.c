@@ -376,8 +376,29 @@ void simulate_env() {
 	*/
 }
 
-void * set_firealarm(){
+void * set_firealarm(void * args){
 	
+}
+
+void cleanup(){
+	for (int i = 1; i < ENTRANCES; i++){
+		munmap(ent_lpr_addr[i] + ENT_GAP*i, sizeof(LPR)); 
+		munmap(ent_boom_addr[i] + ENT_GAP*i, sizeof(boomgate)); 
+		munmap(ent_info_addr[i] + ENT_GAP*i, sizeof(infosign)); 
+	}
+
+	// map exits
+	for (int i = 0; i < EXITS; i++){
+		munmap(ext_lpr_addr[i] + EXT_GAP*i, sizeof(LPR)); 
+		munmap(ext_boom_addr[i] + EXT_GAP*i, sizeof(boomgate)); 	
+	}
+
+	// map levels
+	for (int i = 0; i < LEVELS; i++){
+		munmap(lvl_lpr_addr[i] + LVL_GAP*i, sizeof(LPR)); 
+		munmap(lvl_tmpalrm_addr[i] + LVL_GAP*i, sizeof(temp_alarm));
+	}
+
 }
 
 // setup parking levels, initial temp and sensor values
@@ -390,7 +411,7 @@ void init(){
 	if ((ent_lpr_addr[0] = mmap(0, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
 
 	// MAP rest of entrances
-	for (int i = 0; i < ENTRANCES; i++){
+	for (int i = 1; i < ENTRANCES; i++){
 		if ((ent_lpr_addr[i] = mmap(ent_lpr_addr[0] + ENT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
 		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
 		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
@@ -688,7 +709,8 @@ int main(int argc, int * argv){
 
 
 	// TESTING SECTION
-	munmap((void *)shm, 2920);
+	//munmap((void *)shm, 2920);
+	cleanup();
 	close(shm_fd);
 	return 0;
 }

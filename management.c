@@ -84,6 +84,28 @@ int checklicense_forentry(char *plate){
 
 }
 
+void cleanup(){
+	for (int i = 1; i < ENTRANCES; i++){
+		munmap(ent_lpr_addr[i] + ENT_GAP*i, sizeof(LPR)); 
+		munmap(ent_boom_addr[i] + ENT_GAP*i, sizeof(boomgate)); 
+		munmap(ent_info_addr[i] + ENT_GAP*i, sizeof(infosign)); 
+	}
+
+	// map exits
+	for (int i = 0; i < EXITS; i++){
+		munmap(ext_lpr_addr[i] + EXT_GAP*i, sizeof(LPR)); 
+		munmap(ext_boom_addr[i] + EXT_GAP*i, sizeof(boomgate)); 	
+	}
+
+	// map levels
+	for (int i = 0; i < LEVELS; i++){
+		munmap(lvl_lpr_addr[i] + LVL_GAP*i, sizeof(LPR)); 
+		munmap(lvl_tmpalrm_addr[i] + LVL_GAP*i, sizeof(temp_alarm));
+	}
+
+}
+
+
 int main(int argc, int *argv){
     //read in license plate file
 
@@ -94,6 +116,8 @@ int main(int argc, int *argv){
 
 
     	
-	munmap((void *)shm, 2920);
+	//munmap((void *)shm, 2920);
+
+	cleanup();
 	close(shm_fd);
 }
