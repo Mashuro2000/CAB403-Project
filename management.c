@@ -31,14 +31,12 @@ void init()
 		perror("mmap");
 
 	// MAP rest of entrances
-	for (int i = 0; i < ENTRANCES; i++)
-	{
-		if ((ent_lpr_addr[i] = mmap(ent_lpr_addr[0] + ENT_GAP * i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
-			perror("mmap");
-		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] + sizeof(LPR) + ENT_GAP * i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
-			perror("mmap");
-		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] + sizeof(LPR) + sizeof(boomgate) + ENT_GAP * i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
-			perror("mmap");
+	for(int i = 1; i < ENTRANCES; i++){
+		if ((ent_lpr_addr[i] = (LPR *)mmap(ent_lpr_addr[0] + ENT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+	}
+	for (int i = 0; i < ENTRANCES; i++){
+		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
 	}
 
 	// map exits
