@@ -17,7 +17,9 @@
 int shm_fd;
 void *shm; //volatile
 
-struct LPR *ent_lpr_addr[ENTRANCES];
+LPR *ent_lpr_addr[ENTRANCES];
+boomgate *ent_boom_addr[ENTRANCES];
+infosign *ent_info_addr[ENTRANCES];
 
 // needed so that a car can be generated that is allowed
 char allowed_cars[NUM_ALLOW_CARS][PLATESIZE];
@@ -371,6 +373,25 @@ void * set_firealarm(){
 void init(){
 	printf("TEST INIT 0\n");
 	// Initialise Mutex locks and condition vars for entrance and exit mutexs;
+	
+	// MAP memory spaces
+	// Initial memory space
+	if ((ent_lpr_addr[0] = mmap(0, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+
+	// MAP rest of entrances
+	for (int i = 0; i < ENTRANCES; i++){
+		if ((ent_lpr_addr[i] = mmap(ent_lpr_addr[0] + ENT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + sizeof(infosign) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+	}
+
+	// map exits
+		for (int i = 0; i < EXITS; i++){
+		if ((ent_lpr_addr[i] = mmap(ent_lpr_addr[0] + EXT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + sizeof(infosign) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+	}
+
 	for (int i = 0; i < (3*ENTRANCES + 2*EXITS); i++){
 		int maddr = 96*i + 0;
 		//pthread_mutex_t *m = (pthread_mutex_t *)(shm + maddr);	
@@ -510,7 +531,8 @@ int main(int argc, int * argv){
 
 	ftruncate(shm_fd, SHMSZ);
 	//if ((shm = mmap(0, SHMSZ, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); //(volatile void *)
-	if ((ent_lpr_addr[0] = mmap(0, LPR_ENT_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); //(volatile void 
+
+	init();
 
 
 	// MANUAL MUTEX INIT, TAKE OUT AFTER FIXING INIT()
