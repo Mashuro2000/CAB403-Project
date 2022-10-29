@@ -21,6 +21,12 @@ LPR *ent_lpr_addr[ENTRANCES];
 boomgate *ent_boom_addr[ENTRANCES];
 infosign *ent_info_addr[ENTRANCES];
 
+LPR *ext_lpr_addr[EXITS];
+boomgate *ext_boom_addr[EXITS];
+
+LPR *lvl_lpr_addr[EXITS];
+temp_alarm *lvl_tmpalrm_addr[EXITS];
+
 // needed so that a car can be generated that is allowed
 char allowed_cars[NUM_ALLOW_CARS][PLATESIZE];
 FILE *lps;
@@ -255,14 +261,19 @@ void simulate_car() {
 
 /**********************Car park Temperature *******************/
 void *change_temp(void *args){
-	struct addr_num_args *numargs = (struct addr_num_args *)args;
+	//struct addr_num_args *numargs = (struct addr_num_args *)args;
 	//struct level *lvl = numargs->addr;
-	int *temp = (int *)(numargs->addr);
+	//int *temp = (int *)(numargs->addr);
 	// no mutex lock required, only one thread at a time should be changing the temperature in simulation exe
 
-	*temp = numargs->num;
+	//*temp = numargs->num;
 	//lvl->tempsensor = numargs->num;
-	free(args);
+	//free(args);
+	int lvl = ((int *)args)[0];
+	int temp = ((int *)args)[1];
+	printf("TEST99 %d %d\n", lvl, temp);
+	lvl_tmpalrm_addr[lvl]->tempsensor = temp;
+	printf("TEST100\n");
 }
 void *openboomgate(void *arg)
 {
@@ -382,18 +393,63 @@ void init(){
 	for (int i = 0; i < ENTRANCES; i++){
 		if ((ent_lpr_addr[i] = mmap(ent_lpr_addr[0] + ENT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
 		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + sizeof(infosign) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
 	}
 
 	// map exits
-		for (int i = 0; i < EXITS; i++){
-		if ((ent_lpr_addr[i] = mmap(ent_lpr_addr[0]+ EXT_OFFSET + EXT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] + EXT_OFFSET +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] + EXT_OFFSET +sizeof(LPR) + sizeof(infosign) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+	for (int i = 0; i < EXITS; i++){
+		if ((ext_lpr_addr[i] = mmap(ent_lpr_addr[0]+ EXT_OFFSET + EXT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ext_boom_addr[i] = mmap(ent_lpr_addr[0] + EXT_OFFSET +sizeof(LPR) + EXT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 	
 	}
 
+	// map levels
+	for (int i = 0; i < LEVELS; i++){
+		if ((lvl_lpr_addr[i] = mmap(ent_lpr_addr[0]+ LVL_OFFSET + LVL_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((lvl_tmpalrm_addr[i] = mmap(ent_lpr_addr[0] + LVL_OFFSET + sizeof(LPR) + LVL_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 	
+	}
+
+	// initialise mutexes
+	pthread_mutexattr_t mattr;
+	pthread_mutexattr_init(&mattr);
+	pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+
+	pthread_condattr_t cattr;
+	pthread_condattr_init(&cattr);
+	pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+
+	// entrance mutexes
+	for (int i = 0; i < ENTRANCES; i++){
+		pthread_mutex_init(&ent_lpr_addr[i]->m, &mattr);
+		pthread_mutex_init(&ent_boom_addr[i]->m, &mattr);
+		pthread_mutex_init(&ent_info_addr[i]->m, &mattr);
+
+		pthread_cond_init(&ent_lpr_addr[i]->c, &cattr);
+		pthread_cond_init(&ent_boom_addr[i]->c, &cattr);
+		pthread_cond_init(&ent_info_addr[i]->c, &cattr);
+
+	}
+
+	for (int i = 0; i < EXITS; i++){
+		pthread_mutex_init(&ext_lpr_addr[i]->m, &mattr);
+		pthread_mutex_init(&ext_boom_addr[i]->m, &mattr);
+
+		pthread_cond_init(&ext_lpr_addr[i]->c, &cattr);
+		pthread_cond_init(&ext_boom_addr[i]->c, &cattr);
+	}
+
+
+	for (int i = 0; i < LEVELS; i++){
+		pthread_mutex_init(&lvl_lpr_addr[i]->m, &mattr);
+
+		pthread_cond_init(&lvl_lpr_addr[i]->c, &cattr);
+	}
+
+	// destroy attributes after initialising mutexes
+	pthread_mutexattr_destroy(&mattr);
+	pthread_condattr_destroy(&cattr);
+	/*
 	for (int i = 0; i < (3*ENTRANCES + 2*EXITS); i++){
-		int maddr = 96*i + 0;
+		//int maddr = 96*i + 0;
 		//pthread_mutex_t *m = (pthread_mutex_t *)(shm + maddr);	
 		pthread_mutexattr_t mattr;
 		pthread_mutexattr_init(&mattr);
@@ -434,19 +490,24 @@ void init(){
 		//pthread_mutexattr_setpshared(m, PTHREAD_PROCESS_SHARED);
 		//pthread_condattr_setpshared(c, PTHREAD_PROCESS_SHARED);
 
-	}	
+	}*/
+
 	// set all temps to initial 25C
 
 	pthread_t tempsetthreads[LEVELS];
 	for (int i = 0; i < LEVELS; i++) {
-		volatile struct addr_num_args *args = malloc(sizeof(struct addr_num_args));
-		args->addr = shm + 104 * i + 2496; //temp sensors start at 2496, spaced by 104 bytes
-		args->num = 25;
-		//volatile struct boomgate *bg = shm + *args->addraddr;
-		pthread_create(&tempsetthreads[i], NULL, change_temp, args);
+		//volatile struct addr_num_args *args = malloc(sizeof(struct addr_num_args));
+		//args->addr = shm + 104 * i + 2496; //temp sensors start at 2496, spaced by 104 bytes
+		//args->num = 25;
+
+		// send temp setting as array of 2 ints
+		int args[2];
+		args[0] = i; //lvl
+		args[1] = 25; //temp
+		pthread_create(&tempsetthreads[i], NULL, change_temp, &args);
 		printf("TEST INIT 3 Part %d\n", i);
 	}
-
+	/*
 	// set fire alarms on all levels to 0
 	pthread_t falarmsetthreads[LEVELS];
 	for (int i = 0; i < LEVELS; i++) {
@@ -498,11 +559,11 @@ void init(){
 		pthread_create(&boomgatethreads[ENTRANCES + i], NULL, closeboomgate, bg);
 		printf("TEST INIT 8 Part %d\n", i);
 	}
-	
+	*/
 	for (int i = 0; i < LEVELS; i++) {
 		printf("TEST INIT 9 Part %d\n", i);
 		pthread_join(&tempsetthreads[i], NULL);
-	}
+	}/*
 	for (int i = 0; i < LEVELS; i++) {
 		pthread_join(&falarmsetthreads[i], NULL);
 	}
@@ -518,6 +579,7 @@ void init(){
 	for (int i = 0; i < EXITS; i++) {
 		pthread_join(&boomgatethreads[ENTRANCES + i], NULL);
 	}
+	*/
 }
 
 

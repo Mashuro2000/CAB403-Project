@@ -62,9 +62,11 @@ struct temp_alarm{
 	int tempsensor;
 	char falarm;
 	char padding[5];
-}
+};
 
-/*
+
+// localised (not in shared memory)
+/* REMOVED
 struct level{
     struct LPR *lpr;
     int tempsensor;
@@ -72,10 +74,10 @@ struct level{
 
 };*/
 
-// localised (not in shared memory)
+/* REMOVED
 struct parkinglot{
     struct level l[LEVELS];
-};
+};*/
 
 struct tempnode {
 	int temperature;
