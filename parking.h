@@ -20,11 +20,11 @@
 //#define LPR_ENT_SIZE 96 Use sizeof() with type
 #define ENT_GAP 288
 
-#define EXT_OFFSET (ENTRANCES*LPR_ENT_GAP)
+#define EXT_OFFSET (ENTRANCES*ENT_GAP)
 //#define LPR_EXT_SIZE 96
 #define EXT_GAP 192
 
-#define LVL_OFFSET (EXT_OFFSET + EXITS*LPR_EXT_GAP)
+#define LVL_OFFSET (EXT_OFFSET + EXITS*EXT_GAP)
 //#define LPR_LVL_SIZE 96
 #define LVL_GAP 104
 

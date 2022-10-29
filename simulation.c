@@ -387,9 +387,9 @@ void init(){
 
 	// map exits
 		for (int i = 0; i < EXITS; i++){
-		if ((ent_lpr_addr[i] = mmap(ent_lpr_addr[0] + EXT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] +sizeof(LPR) + sizeof(infosign) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ent_lpr_addr[i] = mmap(ent_lpr_addr[0]+ EXT_OFFSET + EXT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] + EXT_OFFSET +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] + EXT_OFFSET +sizeof(LPR) + sizeof(infosign) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
 	}
 
 	for (int i = 0; i < (3*ENTRANCES + 2*EXITS); i++){
