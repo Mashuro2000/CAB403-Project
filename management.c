@@ -228,8 +228,8 @@ void *openboomgate(void *arg)
 {
     struct boomgate *bg = arg;
     pthread_mutex_lock(&bg->m);
-	printf("MUTEX LOCKED, going to try raise gate\n");
-	printf("GATE STAT %c\n", bg->s);
+	//printf("MUTEX LOCKED, going to try raise gate\n");
+	//printf("GATE STAT %c\n", bg->s);
     for (;;) {
 		if(bg->s == 'C'){
 			bg->s = 'R';

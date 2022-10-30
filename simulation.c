@@ -94,6 +94,59 @@ void read_allowed_plates_from_file(){
 	}
 }
 
+
+void *openboomgate(void *arg)
+{
+    struct boomgate *bg = arg;
+    pthread_mutex_lock(&bg->m);
+	printf("MUTEX LOCKED, going to try raise gate\n");
+	printf("GATE STAT %c\n", bg->s);
+    for (;;) {
+		if(bg->s == 'C'){
+			bg->s = 'R';
+		}
+		else if(bg->s == 'O'){
+			break;
+		}
+
+      	if (bg->s == 'R') {
+        	usleep(10 * 1000); //simulate 10ms of waiting for gate to open
+        	bg->s = 'O';
+        	pthread_cond_broadcast(&bg->c);
+		break;
+      	}
+      	pthread_cond_wait(&bg->c, &bg->m);
+    }
+	pthread_mutex_unlock(&bg->m);
+} 
+
+void *closeboomgate(void *arg)
+{
+    struct boomgate *bg = arg;
+    pthread_mutex_lock(&bg->m);
+	printf("MUTEX LOCKED, going to try lower gate\n");
+	printf("GATE STAT %c\n", bg->s);
+    for (;;) {
+		if(bg->s == 'O'){
+			bg->s = 'L';
+		}
+		else if(bg->s == 'C'){
+			break;
+		}
+		
+      	if (bg->s == 'L') {
+        	usleep(10 * 1000); //simulate 10ms of waiting for gate to open
+        	bg->s = 'C';
+        	pthread_cond_broadcast(&bg->c);
+		break;
+      	}
+      	pthread_cond_wait(&bg->c, &bg->m);
+    }
+	pthread_mutex_unlock(&bg->m);
+} 
+
+
+
 // cars simulated locally in simulation file, but update LPR values
 // cars update LPR value of entrance, updates LPR of level it goes to, waits updates LPR of level it leaves, updates LPR of its chosen exit
 
@@ -245,12 +298,8 @@ void handle_carpark(void *args) {
 	}
 	prev->next = ptr->next;
 	addCar(ext_queue[exit], ptr->lplate);
-	pthread_mutex_signal(&ext_qc[exit]);
+	pthread_cond_signal(&ext_qc[exit]);
 	pthread_mutex_unlock(&ent_cpm[lvl]);
-	free(ptr);
-	
-  //Still need to update LPR
-  //free(queue); //<-- may be wrong
 
 }
 
@@ -303,7 +352,7 @@ void *exit_carpark(void * arg) {
 
 	
 	while(ent_boom_addr[exit]->s != 'O'){
-		printf("Waiting on gate.. \n");
+		//printf("Waiting on gate.. \n");
 	}
 	printf("GO!\n");
 
@@ -409,7 +458,7 @@ void *enter_carpark(void * arg) {
 
 	
 	while(ent_boom_addr[entrance]->s != 'O'){
-		printf("Waiting on gate.. \n");
+		//printf("Waiting on gate.. \n");
 	}
 	printf("GO!\n");
 
@@ -489,61 +538,12 @@ void *change_temp(void *args){
 	//pthread_mutex_lock(&lvl_lpr_addr[0]->m);
 	int lvl = ((int *)args)[0];
 	int temp = ((int *)args)[1];
-	printf("TEST99 %d %d\n", lvl, temp);
+	//printf("TEST99 %d %d\n", lvl, temp);
 
 	lvl_tmpalrm_addr[lvl]->tempsensor = temp;
-	printf("TEST100\n");
+	//printf("TEST100\n");
 	//pthread_mutex_unlock(&lvl_lpr_addr[0]->m);
 }
-void *openboomgate(void *arg)
-{
-    struct boomgate *bg = arg;
-    pthread_mutex_lock(&bg->m);
-	printf("MUTEX LOCKED, going to try raise gate\n");
-	printf("GATE STAT %c\n", bg->s);
-    for (;;) {
-		if(bg->s == 'C'){
-			bg->s = 'R';
-		}
-		else if(bg->s == 'O'){
-			break;
-		}
-
-      	if (bg->s == 'R') {
-        	usleep(10 * 1000); //simulate 10ms of waiting for gate to open
-        	bg->s = 'O';
-        	pthread_cond_broadcast(&bg->c);
-		break;
-      	}
-      	pthread_cond_wait(&bg->c, &bg->m);
-    }
-	pthread_mutex_unlock(&bg->m);
-} 
-
-void *closeboomgate(void *arg)
-{
-    struct boomgate *bg = arg;
-    pthread_mutex_lock(&bg->m);
-	printf("MUTEX LOCKED, going to try lower gate\n");
-	printf("GATE STAT %c\n", bg->s);
-    for (;;) {
-		if(bg->s == 'O'){
-			bg->s = 'L';
-		}
-		else if(bg->s == 'C'){
-			break;
-		}
-		
-      	if (bg->s == 'L') {
-        	usleep(10 * 1000); //simulate 10ms of waiting for gate to open
-        	bg->s = 'C';
-        	pthread_cond_broadcast(&bg->c);
-		break;
-      	}
-      	pthread_cond_wait(&bg->c, &bg->m);
-    }
-	pthread_mutex_unlock(&bg->m);
-} 
 
 //expects args with LPR address and string
 void *change_LPR(void *args){
@@ -593,13 +593,26 @@ void *simulate_fire(void *lvl_addr) {
 
 }
 
-void *simulate_temp(){
-    int delay = 0.002;
-    int Temp;
-    usleep(randtime(1,5)*1000);
-	int maxTemp = 25;
+void *simulate_temp(void *args){
+	int delay = 0.002;
+    int temp;
+	int maxTemp = 45;
 	int baseTemp = 20;
-  
+
+	int lvl = ((int*)args);
+	for(;;){
+		usleep(randtime(1,5)*1000);
+		int currentTemp = lvl_tmpalrm_addr[lvl]->tempsensor;
+		int increment = randtime(-5, 5);
+		temp = currentTemp + increment;
+		while(temp > maxTemp){temp -= 5;}
+		while(temp < baseTemp){temp += 5;}
+
+		int newt[2];
+		newt[0] = lvl;
+		newt[1] = temp;
+		change_temp(newt);
+	}
     // Record the median temp of 5 recent temps as a smoothed temp value
 
     //Fixed temp fire detection
@@ -611,18 +624,19 @@ void *simulate_temp(){
 
 
     //Create manual method of setting off fire alarm
-    for(;;){
-       Temp = (rand() % (maxTemp - baseTemp + 1)) + baseTemp;
-       if(Temp >= maxTemp) {
-
-           printf("Fire has started\n");
-           break; 
-       }
-       else{
-                printf("Temperature: %d degrees\n", Temp);
-                sleep(delay);        
-       }
-    }
+    //for(;;){
+    //   Temp = (rand() % (maxTemp - baseTemp + 1)) + baseTemp;
+    //   if(Temp >= maxTemp) {
+//
+    //       printf("Fire has started\n");
+    //       break; 
+    //   }
+    //   else{
+    //            printf("Temperature: %d degrees\n", Temp);
+    //            sleep(delay);        
+    //   }
+    //}
+	//}
 }
 
 // simulate environment (temps)
@@ -703,11 +717,11 @@ void cleanup(){
 // setup parking levels, initial temp and sensor values
 void init(){
 	srand(time(NULL));
-	printf("TEST INIT 0\n");
+	//printf("TEST INIT 0\n");
 
 	// Initialise local mutexes
 	for(int i = 0; i < ENTRANCES; i++){
-		printf("TEST AGAIN\n");
+		//printf("TEST AGAIN\n");
 		ent_queue[i] = malloc(sizeof(car_node));
 		pthread_mutex_init(&ent_queue[i]->m, NULL);
 		pthread_cond_init(&ent_queue[i]->c, NULL);	
@@ -817,50 +831,7 @@ void init(){
 	// destroy attributes after initialising mutexes
 	pthread_mutexattr_destroy(&mattr);
 	pthread_condattr_destroy(&cattr);
-	/*
-	for (int i = 0; i < (3*ENTRANCES + 2*EXITS); i++){
-		//int maddr = 96*i + 0;
-		//pthread_mutex_t *m = (pthread_mutex_t *)(shm + maddr);	
-		pthread_mutexattr_t mattr;
-		pthread_mutexattr_init(&mattr);
-		pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
-		pthread_mutex_init((pthread_mutex_t*)(shm+maddr), &mattr);
 	
-		
-		int caddr = 96*i + 40;
-		pthread_cond_t *c = (pthread_cond_t *)(shm + caddr);
-		pthread_condattr_t cattr;
-		pthread_condattr_init(&cattr);
-		pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
-		pthread_cond_init(c, &cattr);
-
-		printf("TEST INIT 1 Part %d\n", i);
-		//pthread_mutexattr_setpshared(m, );
-		//pthread_condattr_setpshared(c, PTHREAD_PROCESS_SHARED);
-
-	}
-
-	for (int i = 0; i < LEVELS; i++)
-	{
-		int maddr = 104*i + 2400;
-		//pthread_mutex_t *m = (pthread_mutex_t *)(shm + maddr);
-		pthread_mutexattr_t mattr;
-		pthread_mutexattr_init(&mattr);
-		pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
-		pthread_mutex_init((pthread_mutex_t*)(shm+maddr), &mattr);
-
-		int caddr = 104*i + 2440;
-		pthread_cond_t *c = (pthread_cond_t *)(shm + caddr);
-		pthread_condattr_t cattr;
-		pthread_condattr_init(&cattr);
-		pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
-		pthread_cond_init(c, &cattr);
-
-		printf("TEST INIT 2 Part %d\n", i);
-		//pthread_mutexattr_setpshared(m, PTHREAD_PROCESS_SHARED);
-		//pthread_condattr_setpshared(c, PTHREAD_PROCESS_SHARED);
-
-	}*/
 
 	// set all temps to initial 25C
 
@@ -1014,41 +985,19 @@ void init(){
 	
 	for (int i = 0; i < LEVELS; i++) {
 		pthread_join(LPRLevelsetthreads[i], NULL);
-		free(argslvl[i]->str);
+		//free(argslvl[i]->str);
 	}
 	for (int i = 0; i < ENTRANCES; i++) {
 		pthread_join(LPREntsetthreads[i], NULL);
-		free(argsent[i]->str);
+		//free(argsent[i]->str);
 
 	}
 	for (int i = 0; i < EXITS; i++) {
 		pthread_join(LPRExtsetthreads[i], NULL);
-		free(argsext[i]->str);
+		//free(argsext[i]->str);
 
 	}
 	
-	/*
-	for (int i = 0; i < ENTRANCES; i++) {
-		pthread_join(entboomgatethreads[i], NULL);
-	}
-	for (int i = 0; i < EXITS; i++) {
-		pthread_join(extboomgatethreads[i], NULL);
-	}
-	/*
-	for (int i = 0; i < ENTRANCES + EXITS; i++) {
-		pthread_join(LPRExitsetthreads[i], NULL);
-	}
-	for (int i = 0; i < ENTRANCES + EXITS; i++) {
-		pthread_join(LPREntersetthreads[i], NULL);
-	}
-	
-	for (int i = 0; i < ENTRANCES; i++) {
-		pthread_join(&boomgatethreads[i], NULL);
-	}
-	for (int i = 0; i < EXITS; i++) {
-		pthread_join(&boomgatethreads[ENTRANCES + i], NULL);
-	}
-	*/
 }
 
 
@@ -1139,18 +1088,21 @@ int main(int argc, int * argv){
 	//char *ptr = (char *)(shm + 88);
 	//printf("TEST 5\n");
 
-	
-	pthread_t cargenthread[ENTRANCES] = malloc(sizeof(pthread_t)*ENTRANCES);
+	pthread_t tempsimthread[LEVELS];// = malloc(sizeof(pthread_t)*LEVELS);
+	for(int i = 0; i < LEVELS; i++){
+		pthread_create(&tempsimthread[i],NULL, simulate_temp, i);
+	}
+	pthread_t cargenthread[ENTRANCES];// = malloc(sizeof(pthread_t)*ENTRANCES);
 	for(int i = 0; i < ENTRANCES; i++){
 		pthread_create(&cargenthread[i], NULL, generate_car, i);
 	}
 
-	pthread_t enterparkthread[ENTRANCES] = malloc(sizeof(pthread_t)*ENTRANCES);
+	pthread_t enterparkthread[ENTRANCES];// = malloc(sizeof(pthread_t)*ENTRANCES);
 	for(int i = 0; i< ENTRANCES; i++){
 		pthread_create(&enterparkthread[i], NULL, enter_carpark, i);
 	}
 
-	pthread_t carexitthread[EXITS] = malloc(sizeof(pthread_t)*ENTRANCES);
+	pthread_t carexitthread[EXITS];// = malloc(sizeof(pthread_t)*ENTRANCES);
 	for(int i = 0; i < EXITS; i++){
 		pthread_create(&carexitthread[i], NULL, exit_carpark, i);
 	}
@@ -1169,12 +1121,24 @@ int main(int argc, int * argv){
 		}
 		printf("\n");
 	}
+	printf("TEMPS: ");
+	for(int i = 0; i < LEVELS; i++){
+		printf("%d ", lvl_tmpalrm_addr[i]->tempsensor);
+	}
 	usleep(10);
 	clrscr();
 	//for(int i = 0; i < LEVELS; i++){printf("\v");}
 	}
-	pthread_join(cargenthread, NULL);
-	pthread_join(enterparkthread,NULL);
+
+	for(int i = 0; i < ENTRANCES; i++){
+		pthread_join(cargenthread[i], NULL);
+		pthread_join(enterparkthread[i],NULL);
+	}
+	for(int i = 0; i < EXITS; i++){
+		pthread_join(carexitthread[i], NULL);
+	}
+
+
 	//printf("%x\n", shm);
 	//char *testplate = (char *)(shm + 88);
 	//printf("License plate %s\n", *ptr);
@@ -1195,6 +1159,5 @@ int main(int argc, int * argv){
 	
 	cleanup();
 	close(shm_fd);
-	printf("TEST9\n");
 	return 0;
 }
