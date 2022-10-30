@@ -69,8 +69,6 @@ void init()
 	}
 
 	
-
-	
 }
 
 char allowed_cars[NUM_ALLOW_CARS][PLATESIZE];
@@ -492,7 +490,26 @@ int main(int argc, char **argv)
 	
 	init();
 
+	// create hashtables for each level
+	size_t num_parks = 20;
 	
+	for (int i = 0; i < LEVELS; i++)
+	{
+		if (!htab_init(&carparklvls[i], num_parks))
+    	{
+        	printf("failed to initialise hash table\n");
+        	return EXIT_FAILURE;
+    	}
+
+	}
+	read_allowed_plates_from_file();
+
+
+
+	for (int i = 0; i < LEVELS; i++)
+	{
+		cars_on_lvl.count_lvl[i] = 0;
+	}
 	
 	
 	for(;;) {
