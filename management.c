@@ -316,28 +316,28 @@ void display()
 	printf("\n");
 	for (int i = 0; i < LEVELS; i++)
 	{
-		printf("Entrance %d: %c \t\n", i, (char)ent_boom_addr[0]->s);
+		printf("Entrance %d: %c \t\n", i+1, (char)ent_boom_addr[0]->s);
 	}
 
 	//Exit boom gate current status
 	printf("\n");
 	for (int i = 0; i < LEVELS; i++)
 	{		
-		printf("Exit %d: %c \t\n", i, (char)ext_boom_addr[i]->s);
+		printf("Exit %d: %c \t\n", i+1, (char)ext_boom_addr[i]->s);
 	}
 
 	//current temp 
 	printf("\n");
 	for (int i = 0; i < LEVELS; i++)
 	{
-		printf("Level %d Temperature: %d \n", i, (int)lvl_tmpalrm_addr[i]->tempsensor);
+		printf("Level %d Temperature: %d \n", i+1, (int)lvl_tmpalrm_addr[i]->tempsensor);
 	}
 	
 	//Alarm status 1 = on 0 = false
 	printf("\n");
 	for (int i = 0; i < LEVELS; i++)
 	{
-		printf("Level %d Alarm: %d \n", i, (int)lvl_tmpalrm_addr[i]->falarm);
+		printf("Level %d Alarm: %d \n", i+1, (int)lvl_tmpalrm_addr[i]->falarm);
 	}
 
 	//How much money system has made
@@ -431,14 +431,10 @@ int main(int argc, char **argv)
 	}
 	
 	
-
-	usleep(5000);
-	
-	
 	for(;;) {
 		display();
 	}
-
+	usleep(5000);
 	pthread_t checkentlprthread[LEVELS];
 	//billing();
 	// munmap((void *)shm, 2920);
