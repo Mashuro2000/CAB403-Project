@@ -13,6 +13,8 @@
 int shm_fd;
 volatile void *shm;
 
+lvl_count = 0; // should not exceed 20;
+
 LPR *ent_lpr_addr[ENTRANCES];
 boomgate *ent_boom_addr[ENTRANCES];
 infosign *ent_info_addr[ENTRANCES];
@@ -67,6 +69,8 @@ void init()
 		//printf("EXT LPR MEM: %d\n", &ent_lpr_addr[i]);
 		//printf("EXT BOOM MEM: %d\n", &ent_lpr_addr[i]);
 	}
+
+	
 }
 
 char allowed_cars[NUM_ALLOW_CARS][PLATESIZE];
@@ -300,58 +304,51 @@ void display()
 	// total billing revenue recorded by manager
 	// temp sensors
 
-    for(;;)
-	{	
-		//Capacity number/20
-		printf("\n");
-   		printf("Level 1 Capacity: %d/%d \n");
-		printf("Level 2 Capacity: %d/%d \n");
-		printf("Level 3 Capacity: %d/%d \n");
-		printf("Level 4 Capacity: %d/%d \n");
-		printf("Level 5 Capacity: %d/%d \n");
+	//Capacity number/20
+	printf("\n");
+	printf("Level 1 Capacity: %d/20 \n");
+	printf("Level 2 Capacity: %d/20 \n");
+	printf("Level 3 Capacity: %d/20 \n");
+	printf("Level 4 Capacity: %d/20 \n");
+	printf("Level 5 Capacity: %d/20 \n");
 
-		//Entrance boom gate current status
-		printf("\n");
-		printf("Entrance 1: %c \t\n");
-		printf("Entrance 2: %c \t\n");
-		printf("Entrance 3: %c \t\n");
-		printf("Entrance 4: %c \t\n");
-		printf("Entrance 5: %c \t\n");
-
-		//Exit boom gate current status
-		printf("\n");
-		printf("Exit 1: %c \t\n");
-		printf("Exit 2: %c \t\n");
-		printf("Exit 3: %c \t\n");
-		printf("Exit 4: %c \t\n");
-		printf("Exit 5: %c \t\n");
-
-
-		//current temp 
-		printf("\n");
-   		printf("Level 1 Temperature: %d \n");
-		printf("Level 2 Temperature: %d \n");
-		printf("Level 3 Temperature: %d \n");
-		printf("Level 4 Temperature: %d \n");
-		printf("Level 5 Temperature: %d \n");
-		
-		//Alarm status 1 = on 0 = false
-		printf("\n");
-		printf("Level 1 Alarm: %d \n");
-		printf("Level 2 Alarm: %d \n");
-		printf("Level 3 Alarm: %d \n");
-		printf("Level 4 Alarm: %d \n");
-		printf("Level 5 Alarm: %d \n");
-
-		//How much money system has made
-		printf("\n");
-		printf("Revenue: %d");
-
-		printf("\n");
-		usleep(5000);
-		system("clear");
-		
+	//Entrance boom gate current status
+	printf("\n");
+	for (int i = 0; i < LEVELS; i++)
+	{
+		printf("Entrance %d: %c \t\n", i+1, (char)ent_boom_addr[0]->s);
 	}
+
+	//Exit boom gate current status
+	printf("\n");
+	for (int i = 0; i < LEVELS; i++)
+	{		
+		printf("Exit %d: %c \t\n", i+1, (char)ext_boom_addr[i]->s);
+	}
+
+	//current temp 
+	printf("\n");
+	for (int i = 0; i < LEVELS; i++)
+	{
+		printf("Level %d Temperature: %d \n", i+1, (int)lvl_tmpalrm_addr[i]->tempsensor);
+	}
+	
+	//Alarm status 1 = on 0 = false
+	printf("\n");
+	for (int i = 0; i < LEVELS; i++)
+	{
+		printf("Level %d Alarm: %d \n", i+1, (int)lvl_tmpalrm_addr[i]->falarm);
+	}
+
+	//How much money system has made
+	printf("\n");
+	printf("Revenue: %d");
+
+	printf("\n");
+	usleep(5000);
+	system("clear");
+		
+	
 }
 
 // read in license plates from file
@@ -380,11 +377,6 @@ void read_allowed_plates_from_file()
 	
 }
 
-// 1 if allowed, 0 if not, allows management sytem to know whether to allow entry
-int checklicense_forentry(char *plate)
-{
-}
-
 void cleanup()
 {
 	for (int i = 1; i < ENTRANCES; i++)
@@ -409,17 +401,45 @@ void cleanup()
 	}
 }
 
+void *checkLPR(void * arg) {
+	int entrance_num = *(int *)arg;
+
+	//ent_lpr_addr[entrance_num];
+}
+
 int main(int argc, char **argv)
 {
+	htab carparklvls[LEVELS];
 	// read in license plate file
 
 	// open shared memory
 	shm_fd = shm_open("PARKING", O_RDWR, 0666);
 	// shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 	init();
-	//display();
+
+	// create hashtables for each level
+	size_t num_parks = 20;
+	
+	for (int i = 0; i < LEVELS; i++)
+	{
+		if (!htab_init(&carparklvls, num_parks))
+    	{
+        	printf("failed to initialise hash table\n");
+        	return EXIT_FAILURE;
+    	}
+
+	}
+	
+	
+	for(;;) {
+		display();
+	}
+	usleep(5000);
+	pthread_t checkentlprthread[LEVELS];
 	//billing();
 	// munmap((void *)shm, 2920);
+
+	
 
 	cleanup();
 	close(shm_fd);
