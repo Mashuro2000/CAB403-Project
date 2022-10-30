@@ -39,6 +39,8 @@ FILE *lps;
 typedef struct cars car_node;
 struct cars{
     char lplate[PLATESIZE];
+	pthread_mutex_t m;
+	pthread_cond_t c;
     struct cars *next;
 };
 
@@ -60,6 +62,7 @@ struct two_addr{
 
 
 car_node *ent_queue[ENTRANCES];
+car_node *cars_parked[LEVELS];
 
 // read in license plates from file
 void read_allowed_plates_from_file(){
@@ -115,6 +118,8 @@ car_node *addCar(car_node *head, char *car) {
 // add to linked list of car queue at one of the entrances
 // returns the head of the linked list
 void generate_car(car_node head_car) {
+
+	// Multiple threads for each entrance, handles each queue
 	srand(time(NULL));
 	bool tf = (rand() % 2) != 0;
 
@@ -170,10 +175,25 @@ void *enter_carpark(void * arg) {
 	print_plate(ent_queue[entrance]->lplate);
 
 	printf("TEST CAR 0.5\n");
-    copy_plate(ent_lpr_addr[entrance]->plate, ent_queue[entrance]->lplate);
 
-	
+	// car reads
+	pthread_mutex_lock(&ent_lpr_addr[entrance]->m);
+	usleep(2*1000); // wait 2ms before triggering LPR
+    copy_plate(ent_lpr_addr[entrance]->plate, ent_queue[entrance]->lplate);
 	print_plate(ent_lpr_addr[entrance]->plate);
+	pthread_mutex_unlock(&ent_lpr_addr[entrance]->m);
+
+	//openboomgate and random sign for testing for testing (should be done by management system)
+	srand(time(NULL));
+	int lvl = rand() % (LEVELS + 1);
+	if (lvl == LEVELS + 1){
+		pthread_mutex_lock(&ent_info_addr[entrance]->m);
+		ent_info_addr[entrance]->display = 'X';
+		pthread_mutex_unlock((&ent_info_addr[entrance]->m));
+	}
+
+
+
 	printf("\n");
 	/*do
 	{
@@ -252,10 +272,6 @@ int parktime() {
   int value = randtime(100, 10000);
   usleep(value * 1000); //Sleep between 100ms and 10000ms
   return value; //return how long car was parked for billing purposes??
-}
-
-void simulate_car() {
-    // 
 }
 
 
@@ -368,30 +384,6 @@ void *change_LPR(void *args){
 
 	//free(argin->str);
 	printf("FINISHED SETTING LPR\n");
-
-}
-
-//TESTING removed print functions to view one thread ^
-void *change_LPR2(void *args){
-	//struct addr_str_args *strargs = (struct addr_str_args *)args;
-	//struct LPR *lvl = (struct level *)(strargs->addr);
-
-	struct addr_str_args *argin = (struct addr_str_args *)args;
-	LPR *lpradd;
-	lpradd = (LPR *)argin->addr;
-	char *newplate = (char *)argin->str;
-	
-	//pthread_mutex_unlock(&lpradd->m);
-	//pthread_
-	//pthread_mutex_lock(&lpradd->m);
-
-	copy_plate(lpradd->plate, newplate);
-
-	//pthread_mutex_unlock(&lpradd->m);
-
-
-	free(args);
-
 
 }
 
@@ -511,8 +503,18 @@ void cleanup(){
 // setup parking levels, initial temp and sensor values
 void init(){
 	printf("TEST INIT 0\n");
-	// Initialise Mutex locks and condition vars for entrance and exit mutexs;
-	
+
+	// Initialise local mutexes
+	for(int i = 0; i < ENTRANCES; i++){
+		pthread_mutex_init(&ent_queue[i]->m, NULL);
+		pthread_cond_init(&ent_queue[i]->c, NULL);	
+	}
+	for(int i = 0; i < LEVELS; i++){
+		pthread_mutex_init(&cars_parked[i]->m, NULL);
+		pthread_cond_init(&cars_parked[i]->c, NULL);
+		}
+
+
 	// MAP memory spaces
 	// Initial memory space
 	if ((shm = mmap(0, SHMSZ, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap");
@@ -557,7 +559,7 @@ void init(){
 		//printf("EXT BOOM MEM: %d\n", &ent_lpr_addr[i]);
 	}
 
-	// initialise mutexes
+	// Initialise Mutex locks and condition vars for entrance and exit mutexs;
 	
 	// mutex shared attributes
 	pthread_mutexattr_t mattr;
@@ -843,6 +845,11 @@ void init(){
 		printf("TEST INIT 8 Part %d\n", i);
 	}
 
+	// set status signs to '-' initially
+	for(int i = 0; i < ENTRANCES; i++){
+		ent_info_addr[i]->display = '-';
+	}
+
 	//joining threads
 	
 	for (int i = 0; i < LEVELS; i++) {
@@ -995,6 +1002,10 @@ int main(int argc, int * argv){
 
 	*closeboomgate(ent_boom_addr[2]);
 	printf("ENT 3 BOOMGATE STATUS: %c\n", ent_boom_addr[2]->s);
+
+	for (int i = 0; i < ENTRANCES; i++){
+		printf("STATUS SIGN %d: %c\n", i, ent_info_addr[i]->display);
+	}
 	//char *ptr = (char *)(shm + 88);
 	//printf("TEST 5\n");
 

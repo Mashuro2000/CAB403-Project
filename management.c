@@ -219,6 +219,57 @@ void htab_destroy(htab *h)
 	h->size = 0;
 }
 
+// open and close boomgate functions
+void *openboomgate(void *arg)
+{
+    struct boomgate *bg = arg;
+    pthread_mutex_lock(&bg->m);
+	printf("MUTEX LOCKED, going to try raise gate\n");
+	printf("GATE STAT %c\n", bg->s);
+    for (;;) {
+		if(bg->s == 'C'){
+			bg->s = 'R';
+		}
+		else if(bg->s == 'O'){
+			break;
+		}
+
+      	if (bg->s == 'R') {
+        	usleep(10 * 1000); //simulate 10ms of waiting for gate to open
+        	bg->s = 'O';
+        	pthread_cond_broadcast(&bg->c);
+		break;
+      	}
+      	pthread_cond_wait(&bg->c, &bg->m);
+    }
+	pthread_mutex_unlock(&bg->m);
+} 
+
+void *closeboomgate(void *arg)
+{
+    struct boomgate *bg = arg;
+    pthread_mutex_lock(&bg->m);
+	printf("MUTEX LOCKED, going to try lower gate\n");
+	printf("GATE STAT %c\n", bg->s);
+    for (;;) {
+		if(bg->s == 'O'){
+			bg->s = 'L';
+		}
+		else if(bg->s == 'C'){
+			break;
+		}
+		
+      	if (bg->s == 'L') {
+        	usleep(10 * 1000); //simulate 10ms of waiting for gate to open
+        	bg->s = 'C';
+        	pthread_cond_broadcast(&bg->c);
+		break;
+      	}
+      	pthread_cond_wait(&bg->c, &bg->m);
+    }
+	pthread_mutex_unlock(&bg->m);
+} 
+
 //parking billing is done by 5 cents for every millisecond car is at carpark from entering to exit
 //Calculate and create the bill txt file
 void billing(){

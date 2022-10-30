@@ -14,6 +14,7 @@
 #define ENTRANCES 5
 #define EXITS 5
 #define PLATESIZE 6 //  6 character plate
+#define LVL_CAP 20
 #define NUM_ALLOW_CARS 100
 
 
