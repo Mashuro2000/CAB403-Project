@@ -159,8 +159,6 @@ void generate_car(car_node head_car) {
 // May need to reduce to void * arg
 // struct cars * queue ,struct LPR *entrance, struct parkinglot plot, 
 void *enter_carpark(void * arg) {	
-	// find the first car that joined the queue
-
 	
 	/*struct two_addr * lpr_queue = (struct two_addr *) arg;
 	struct LPR *lpr = (struct LPR *)lpr_queue->lpraddr;
@@ -170,13 +168,26 @@ void *enter_carpark(void * arg) {
 	printf("TEST CAR 0\n");
 
     int entrance = *(int *)arg;
+	// find the first car that joined the queue
+	pthread_mutex_unlock(&ent_queue[entrance]->m);
+	pthread_mutex_lock(&ent_queue[entrance]->m);
+	printf("TEST CAR 1\n");
+	while(ent_queue[entrance] == NULL){pthread_cond_wait(&ent_queue[entrance]->c, &ent_queue[entrance]->m);} // wait for car in queue (signal from car gen)
+
+	car_node * firstcar;
+	firstcar = ent_queue[entrance];
+	while(firstcar->next != NULL){
+		firstcar = firstcar->next;
+	}
+	pthread_mutex_unlock(&ent_queue[entrance]->m); // should be free to unlock after finding first car in queue
 
 	printf("Entrance %d\n", entrance);
-	print_plate(ent_queue[entrance]->lplate);
+	print_plate(firstcar->lplate);
 
 	printf("TEST CAR 0.5\n");
 
 	// car reads
+	pthread_mutex_unlock(&ent_lpr_addr[entrance]->m);
 	pthread_mutex_lock(&ent_lpr_addr[entrance]->m);
 	usleep(2*1000); // wait 2ms before triggering LPR
     copy_plate(ent_lpr_addr[entrance]->plate, ent_queue[entrance]->lplate);
@@ -186,14 +197,49 @@ void *enter_carpark(void * arg) {
 	//openboomgate and random sign for testing for testing (should be done by management system)
 	srand(time(NULL));
 	int lvl = rand() % (LEVELS + 1);
+
+	
+	pthread_mutex_lock(&ent_info_addr[entrance]->m);
 	if (lvl == LEVELS + 1){
-		pthread_mutex_lock(&ent_info_addr[entrance]->m);
 		ent_info_addr[entrance]->display = 'X';
-		pthread_mutex_unlock((&ent_info_addr[entrance]->m));
+	}
+	else{
+		ent_info_addr[entrance]->display = lvl + 'A';
+	}
+	pthread_mutex_unlock((&ent_info_addr[entrance]->m));
+
+	
+	pthread_mutex_unlock(&ent_info_addr[entrance]->m);
+	pthread_mutex_lock(&ent_info_addr[entrance]->m);
+	int followthesign = rand() % 10;
+	if (followthesign <= 20){//follows sign approx 80% of time
+		lvl = rand() % (LEVELS); // choose random level
 	}
 
+	
+	//add to cars parked queue on defined lvl
+	car_node *lvl_q_ptr = cars_parked[lvl];
+	firstcar->next = lvl_q_ptr;
+	cars_parked[lvl]=firstcar;
 
+	//remove car from entrance queue
+		
+	car_node * prevcar = ent_queue[entrance];
+	
+	if(prevcar == firstcar){
+		ent_queue[entrance] = NULL;
+	}
+	else{
+		while(prevcar->next != NULL){
+			prevcar =prevcar->next;
+		}
+	}
 
+	prevcar->next = NULL;
+	
+	pthread_mutex_unlock(&ent_info_addr[entrance]->m);
+
+	printf("TEST CAR 2\n");
 	printf("\n");
 	/*do
 	{
@@ -258,7 +304,7 @@ void exit_carpark(struct cars * queue ,struct LPR *exit, struct level *lvl) {
   usleep(10 * 1000); //Takes the car 10ms to drive to a random exit
 
   //Still need to update LPR
-  free(queue); //<-- may be wrong
+  //free(queue); //<-- may be wrong
 
 }
 
@@ -506,13 +552,16 @@ void init(){
 
 	// Initialise local mutexes
 	for(int i = 0; i < ENTRANCES; i++){
+		printf("TEST AGAIN\n");
+		ent_queue[i] = malloc(sizeof(car_node));
 		pthread_mutex_init(&ent_queue[i]->m, NULL);
 		pthread_cond_init(&ent_queue[i]->c, NULL);	
 	}
 	for(int i = 0; i < LEVELS; i++){
+		cars_parked[i] = malloc(sizeof(car_node));
 		pthread_mutex_init(&cars_parked[i]->m, NULL);
 		pthread_cond_init(&cars_parked[i]->c, NULL);
-		}
+	}
 
 
 	// MAP memory spaces
@@ -903,8 +952,6 @@ void init(){
 
 int main(int argc, int * argv){
 
-	printf("TEST\n");
-
 	read_allowed_plates_from_file();
 
     if ((shm_fd = shm_open("PARKING", O_CREAT | O_RDWR, 0666)) < 0) perror("shm_open");
@@ -949,23 +996,30 @@ int main(int argc, int * argv){
 
 	// TESTING SECTION
 	// first value in linked list will be a initial value
-	/*
+	
 	car_node firstcar;
 	car_node *head;
-	strcpy(firstcar.lplate, carlist[0]);
+	strcpy(firstcar.lplate, allowed_cars[0]);
 	firstcar.next = NULL;
 	head = &firstcar;
-	*/
-	/*
+	
+	
 	ent_queue[0] = (car_node *)malloc(sizeof(car_node));
 	*ent_queue[0]->lplate = (char *)malloc(sizeof(char)*6);
 	copy_plate(ent_queue[0]->lplate, allowed_cars[0]);
 	ent_queue[0]->next = NULL;
 	
+	for(int i = 1; i < ENTRANCES; i ++){
+		ent_queue[i] = NULL;
+	}
+	for(int i = 0; i < LEVELS; i++){
+		cars_parked[i] = NULL;
+	}
+
 	printf("LICENSE STORE 1 ");
 	print_plate(allowed_cars[0]);
 	printf("\n");
-	pthread_t enterparkthread = malloc(sizeof(pthread_t));
+	
 	
 	/*
 	struct two_addr *args = (struct two_addr *)malloc(sizeof(struct two_addr));
@@ -974,14 +1028,16 @@ int main(int argc, int * argv){
 	*/
 	int *arg = (int *)malloc(sizeof(int));
 	*arg = 0;
-	//car_node * carptr = (car_node *)args->queueaddr;
+	//car_node * carptr = (car_node *)args->queueaddr;s
 	printf("TEST 2.5\n");
 
 	//printf("%s\n", carptr->lplate);
 	printf("TEST 3\n");
-	//pthread_create(enterparkthread, NULL, enter_carpark, &args);
-	//enter_carpark(arg);
 
+	pthread_t enterparkthread = malloc(sizeof(pthread_t));
+	pthread_create(&enterparkthread, NULL, enter_carpark, arg);
+	//enter_carpark(arg);
+	pthread_join(enterparkthread,NULL);
 	//strcpy((char *)(shm + 88), "000000");
 	//sprintf((shm+88), "%s", "000000");
 	printf("TEST4\n");
@@ -1009,6 +1065,23 @@ int main(int argc, int * argv){
 	//char *ptr = (char *)(shm + 88);
 	//printf("TEST 5\n");
 
+	//test display
+	for(;;){
+	printf("CAR PARKS:\n");
+	car_node *carptr;
+	for(int i = 0; i < LEVELS; i++){
+		carptr = cars_parked[i];
+		printf("LEVEL %d: ", i+1);
+		while(carptr != NULL){
+			print_plate(carptr->lplate); printf("--");
+			carptr = carptr->next;
+		}
+		printf("\n");
+	}
+	usleep(10);
+	clrscr();
+	//for(int i = 0; i < LEVELS; i++){printf("\v");}
+	}
 	//printf("%x\n", shm);
 	//char *testplate = (char *)(shm + 88);
 	//printf("License plate %s\n", *ptr);
@@ -1026,7 +1099,9 @@ int main(int argc, int * argv){
 
 	// TESTING SECTION
 	//munmap((void *)shm, 2920);
+	
 	cleanup();
 	close(shm_fd);
+	printf("TEST9\n");
 	return 0;
 }

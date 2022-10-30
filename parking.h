@@ -16,7 +16,7 @@
 #define PLATESIZE 6 //  6 character plate
 #define LVL_CAP 20
 #define NUM_ALLOW_CARS 100
-
+#define clrscr() printf("\e[1;1H\e[2J")
 
 //#define LPR_ENT_SIZE 96 Use sizeof() with type
 #define ENT_GAP 288
