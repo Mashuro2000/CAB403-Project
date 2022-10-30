@@ -356,7 +356,7 @@ int main(int argc, char **argv)
 	// open shared memory
 	shm_fd = shm_open("PARKING", O_RDWR, 0666);
 	// shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-	//init();
+	init();
 	//display();
 	//billing();
 	// munmap((void *)shm, 2920);

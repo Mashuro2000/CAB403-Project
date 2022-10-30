@@ -327,7 +327,7 @@ void *change_LPR(void *args){
 	printf("MUTEX ADD2 %x\n", &lpradd->m);
 	printf("MUTEX ADD3 %x\n", &lvl_lpr_addr[0]->m);
 	
-	//pthread_mutex_unlock(&lpradd->m);
+	pthread_mutex_unlock(&lpradd->m);
 	//printf("UNLOCK ERROR %d\n", pthread_mutex_unlock(&lpradd->m));
 
 	if(pthread_mutex_lock(&lpradd->m) != 0) perror("mutex lock");
@@ -370,11 +370,11 @@ void *change_LPR2(void *args){
 	
 	//pthread_mutex_unlock(&lpradd->m);
 	//pthread_
-	pthread_mutex_lock(&lpradd->m);
+	//pthread_mutex_lock(&lpradd->m);
 
 	copy_plate(lpradd->plate, newplate);
 
-	pthread_mutex_unlock(&lpradd->m);
+	//pthread_mutex_unlock(&lpradd->m);
 
 
 	free(args);
@@ -653,20 +653,20 @@ void init(){
 	
 	pthread_t LPRLevelsetthreads[LEVELS];
 	struct addr_str_args *args[LEVELS];
-	for (int i = 0; i < 1; i++) {
+	for (int i = 0; i < LEVELS; i++) {
 		//volatile 
 		args[i] = (struct addr_str_args*)malloc(sizeof(struct addr_str_args));
 		//TESTING ON ONE PIECE OF MEMORY
 		//args->addr = (void *)&lvl_lpr_addr[0];
 		printf("TEST INIT 5.0 Part %d\n", i);
-
+		//printf("SHARED MEM SIZE: %d\n", SHMSZ);
 		args[i]->addr = lvl_lpr_addr[i];
 
 		args[i]->str = malloc(sizeof(char)*6);
 		sprintf(args[i]->str, "--%d---", i);
 		//copy_plate(lvl_lpr_addr[i]->plate, "123456");
 		printf("SETTING CURRENT LICENSE ");
-		print_plate(lvl_lpr_addr[i]->plate);printf("\n");
+		print_plate(args[i]->str);printf("\n");
 		//printf("MUTEX ADD1 %x\n", lvl_lpr_addr[i]->m);
 
 		if (pthread_create(&LPRLevelsetthreads[i], NULL, change_LPR, args[i]) != 0){
@@ -675,7 +675,7 @@ void init(){
 		
 		printf("TEST INIT 5 Part %d\n", i);
 	}
-	
+	/*
 	for (int i = 1; i < LEVELS; i++) {
 		struct addr_str_args *args = (struct addr_str_args *)malloc(sizeof(struct addr_str_args));//volatile 
 		//TESTING ON ONE PIECE OF MEMORY

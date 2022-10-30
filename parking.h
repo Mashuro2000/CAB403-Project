@@ -8,7 +8,7 @@
 #include <fcntl.h>
 
 //original SHMSZ
-#define SHMSZ 2920
+//#define SHMSZ 2920
 
 #define LEVELS 5
 #define ENTRANCES 5
@@ -31,6 +31,7 @@
 #define BOOM_SIZE 96
 //#define INF_SIZE 
 
+#define SHMSZ (LEVELS*LVL_GAP + ENTRANCES*ENT_GAP + EXITS*EXT_GAP)
 
 
 typedef struct LPR LPR;
