@@ -291,7 +291,6 @@ void *openboomgate(void *arg)
       pthread_cond_wait(&bg->c, &bg->m);
     }
 	pthread_mutex_unlock(&bg->m);
-	free(arg);
 } 
 
 void *closeboomgate(void *arg)
@@ -310,8 +309,6 @@ void *closeboomgate(void *arg)
       pthread_cond_wait(&bg->c, &bg->m);
     }
 	pthread_mutex_unlock(&bg->m);
-	free(arg);
-
 } 
 
 //expects args with LPR address and string
@@ -327,7 +324,7 @@ void *change_LPR(void *args){
 	printf("MUTEX ADD2 %x\n", &lpradd->m);
 	printf("MUTEX ADD3 %x\n", &lvl_lpr_addr[0]->m);
 	
-	pthread_mutex_unlock(&lpradd->m);
+	//pthread_mutex_unlock(&lpradd->m);
 	//printf("UNLOCK ERROR %d\n", pthread_mutex_unlock(&lpradd->m));
 
 	if(pthread_mutex_lock(&lpradd->m) != 0) perror("mutex lock");
@@ -344,7 +341,6 @@ void *change_LPR(void *args){
 	//srintf(->plate, "%s", strargs->str);
 
 	copy_plate(lpradd->plate, newplate);
-	usleep(100);
 	printf("NEW LICENSE: ");
 	print_plate(lvl_lpr_addr[0]->plate); printf("\n");
 
@@ -353,12 +349,12 @@ void *change_LPR(void *args){
 	printf("MUTEX UNLOCKED\n");
 	//printf("%d", pthread_self());
 
-	free(args);
-
+	//free(argin->str);
+	printf("FINISHED SETTING LPR\n");
 
 }
 
-//TESTING remove print functions to view one thread
+//TESTING removed print functions to view one thread ^
 void *change_LPR2(void *args){
 	//struct addr_str_args *strargs = (struct addr_str_args *)args;
 	//struct LPR *lvl = (struct level *)(strargs->addr);
@@ -440,6 +436,7 @@ void * set_firealarm(void * args){
 	char status = ((char *)args)[1];
 
 	lvl_tmpalrm_addr[lvl]->falarm = status;
+	printf("FIREALARM SET\n");
 }
 
 void cleanup(){
@@ -501,28 +498,46 @@ void init(){
 	
 	// MAP memory spaces
 	// Initial memory space
-	if ((ent_lpr_addr[0] = mmap(0, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+	if ((shm = mmap(0, SHMSZ, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap");
+
+	//if ((ent_lpr_addr[0] = mmap(0, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+	printf("ENT MEM: %d\n", ENT_GAP*0);
 
 	// MAP rest of entrances
 
-	for(int i = 1; i < ENTRANCES; i++){
-		if ((ent_lpr_addr[i] = (LPR *)mmap(ent_lpr_addr[0] + ENT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+	for(int i = 0; i < ENTRANCES; i++){ //ent_lpr_addr[0] + 
+		//if ((ent_lpr_addr[i] = (LPR *)mmap(ENT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap");
+		ent_lpr_addr[i] = (LPR *)(shm + ENT_GAP*i);
 	}
 	for (int i = 0; i < ENTRANCES; i++){
-		if ((ent_boom_addr[i] = (boomgate *)mmap(ent_lpr_addr[0] +sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((ent_info_addr[i] = (infosign *)mmap(ent_lpr_addr[0] +sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		//if ((ent_boom_addr[i] = (boomgate *)mmap(sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		//if ((ent_info_addr[i] = (infosign *)mmap(sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+
+		ent_boom_addr[i] = (boomgate *)(shm + sizeof(LPR) + ENT_GAP*i);
+		ent_info_addr[i] = (infosign *)(shm + sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i);
 	}
 
 	// map exits
 	for (int i = 0; i < EXITS; i++){
-		if ((ext_lpr_addr[i] = (LPR *)mmap(ent_lpr_addr[0]+ EXT_OFFSET + EXT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((ext_boom_addr[i] = (boomgate *)mmap(ent_lpr_addr[0] + EXT_OFFSET +sizeof(LPR) + EXT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 	
+		//if ((ext_lpr_addr[i] = (LPR *)mmap(EXT_OFFSET + EXT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		//if ((ext_boom_addr[i] = (boomgate *)mmap( EXT_OFFSET +sizeof(LPR) + EXT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap");
+		ext_lpr_addr[i] = (LPR *)(shm + EXT_OFFSET + EXT_GAP*i);
+		ext_boom_addr[i] = (boomgate *)(shm + EXT_OFFSET +sizeof(LPR) + EXT_GAP*i);
 	}
 
 	// map levels
 	for (int i = 0; i < LEVELS; i++){
-		if ((lvl_lpr_addr[i] = (LPR *)mmap(ent_lpr_addr[0]+ LVL_OFFSET + LVL_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		if ((lvl_tmpalrm_addr[i] = (temp_alarm *)mmap(ent_lpr_addr[0] + LVL_OFFSET + sizeof(LPR) + LVL_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 	
+		//if ((lvl_lpr_addr[i] = (LPR *)mmap( LVL_OFFSET + LVL_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		//if ((lvl_tmpalrm_addr[i] = (temp_alarm *)mmap( LVL_OFFSET + sizeof(LPR) + LVL_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 	
+		lvl_lpr_addr[i] = (LPR *)(shm + LVL_OFFSET + LVL_GAP*i);
+		lvl_tmpalrm_addr[i] = (temp_alarm*)(shm + LVL_OFFSET + sizeof(LPR) + LVL_GAP*i);
+		
+		printf("ENT LPR MEM: %d\n", &ent_lpr_addr[i]);
+		//printf("LPR SIZE %d\n", sizeof(LPR));
+		printf("ENT BOOM MEM %d: %d\n", i, &ent_boom_addr[i]);
+		printf("ENT INFO MEM %d: %d\n", i, &ent_info_addr[i]);
+		//printf("EXT LPR MEM: %d\n", &ent_lpr_addr[i]);
+		//printf("EXT BOOM MEM: %d\n", &ent_lpr_addr[i]);
 	}
 
 	// initialise mutexes
@@ -570,8 +585,8 @@ void init(){
 
 
 	// destroy attributes after initialising mutexes
-	//pthread_mutexattr_destroy(&mattr);
-	//pthread_condattr_destroy(&cattr);
+	pthread_mutexattr_destroy(&mattr);
+	pthread_condattr_destroy(&cattr);
 	/*
 	for (int i = 0; i < (3*ENTRANCES + 2*EXITS); i++){
 		//int maddr = 96*i + 0;
@@ -649,27 +664,77 @@ void init(){
 		printf("TEST INIT 4 Part %d\n", i);
 	}
 	
+	// set entrance LPRs
+	pthread_t LPREntsetthreads[LEVELS];
+	struct addr_str_args *argsent[LEVELS];
+	for (int i = 0; i < LEVELS; i++) {
+		//volatile 
+		argsent[i] = (struct addr_str_args*)malloc(sizeof(struct addr_str_args));
+		//TESTING ON ONE PIECE OF MEMORY
+		//args->addr = (void *)&lvl_lpr_addr[0];
+		//printf("TEST INIT 5.0 Part %d\n", i);
+		//printf("SHARED MEM SIZE: %d\n", SHMSZ);
+		argsent[i]->addr = ent_lpr_addr[i];
+
+		argsent[i]->str = malloc(sizeof(char)*6);
+		//sprintf(args[i]->str, "--%d---", i);
+		copy_plate(argsent[i]->str, "------");
+		printf("SETTING CURRENT LICENSE ");
+		print_plate(argsent[i]->str);printf("\n");
+		//printf("MUTEX ADD1 %x\n", lvl_lpr_addr[i]->m);
+
+		if (pthread_create(&LPREntsetthreads[i], NULL, change_LPR, argsent[i]) != 0){
+			perror("pthread error");
+		}
+		
+		printf("TEST INIT 5 Part %d\n", i);
+	}
+
+	pthread_t LPRExtsetthreads[EXITS];
+	struct addr_str_args *argsext[EXITS];
+	for (int i = 0; i < EXITS; i++) {
+		//volatile 
+		argsext[i] = (struct addr_str_args*)malloc(sizeof(struct addr_str_args));
+		//TESTING ON ONE PIECE OF MEMORY
+		//args->addr = (void *)&lvl_lpr_addr[0];
+		//printf("TEST INIT 5.0 Part %d\n", i);
+		//printf("SHARED MEM SIZE: %d\n", SHMSZ);
+		argsext[i]->addr = ent_lpr_addr[i];
+
+		argsext[i]->str = malloc(sizeof(char)*6);
+		//sprintf(args[i]->str, "--%d---", i);
+		copy_plate(argsext[i]->str, "------");
+		printf("SETTING CURRENT LICENSE ");
+		print_plate(argsext[i]->str);printf("\n");
+		//printf("MUTEX ADD1 %x\n", lvl_lpr_addr[i]->m);
+
+		if (pthread_create(&LPRExtsetthreads[i], NULL, change_LPR, argsent[i]) != 0){
+			perror("pthread error");
+		}
+		
+		printf("TEST INIT 5 Part %d\n", i);
+	}
 	// set levels LPRs 
 	
 	pthread_t LPRLevelsetthreads[LEVELS];
-	struct addr_str_args *args[LEVELS];
+	struct addr_str_args *argslvl[LEVELS];
 	for (int i = 0; i < LEVELS; i++) {
 		//volatile 
-		args[i] = (struct addr_str_args*)malloc(sizeof(struct addr_str_args));
+		argslvl[i] = (struct addr_str_args*)malloc(sizeof(struct addr_str_args));
 		//TESTING ON ONE PIECE OF MEMORY
 		//args->addr = (void *)&lvl_lpr_addr[0];
-		printf("TEST INIT 5.0 Part %d\n", i);
+		//printf("TEST INIT 5.0 Part %d\n", i);
 		//printf("SHARED MEM SIZE: %d\n", SHMSZ);
-		args[i]->addr = lvl_lpr_addr[i];
+		argslvl[i]->addr = lvl_lpr_addr[i];
 
-		args[i]->str = malloc(sizeof(char)*6);
-		sprintf(args[i]->str, "--%d---", i);
-		//copy_plate(lvl_lpr_addr[i]->plate, "123456");
+		argslvl[i]->str = malloc(sizeof(char)*6);
+		//sprintf(args[i]->str, "--%d---", i);
+		copy_plate(argslvl[i]->str, "------");
 		printf("SETTING CURRENT LICENSE ");
-		print_plate(args[i]->str);printf("\n");
+		print_plate(argslvl[i]->str);printf("\n");
 		//printf("MUTEX ADD1 %x\n", lvl_lpr_addr[i]->m);
 
-		if (pthread_create(&LPRLevelsetthreads[i], NULL, change_LPR, args[i]) != 0){
+		if (pthread_create(&LPRLevelsetthreads[i], NULL, change_LPR, argslvl[i]) != 0){
 			perror("pthread error");
 		}
 		
@@ -735,22 +800,33 @@ void init(){
 
 	}
 	*/
-	/*
+	
 	// close all boomgates
-	pthread_t boomgatethreads[ENTRANCES]; //= malloc(sizeof(pthread_t) * (ENTRANCES + EXITS));
+
+	//pthread_t entboomgatethreads[ENTRANCES]; //= malloc(sizeof(pthread_t) * (ENTRANCES + EXITS));
+	struct boomgate *bgents[ENTRANCES];
 	for (int i = 0; i < ENTRANCES; i++) {
 		//int addr = 288 * i + 96;
-		struct boomgate *bg =  &ent_boom_addr[i]; //(struct boomgate *) volatile 
-		pthread_create(&boomgatethreads[i], NULL, closeboomgate, bg);
+		bgents[i] =  &ent_boom_addr[i]; //(struct boomgate *) volatile 
+		//pthread_create(&entboomgatethreads[i], NULL, closeboomgate, bgents[i]);
+		ent_boom_addr[i]->s = 'C';
 		printf("TEST INIT 7 Part %d\n", i);
+
+		
 	}
+	printf("BOOM STAT: %c\n", ent_boom_addr[3]->s);
 	
+	//pthread_t extboomgatethreads[EXITS];
+	struct boomgate *bgexts[EXITS];
 	for (int i = 0; i < EXITS; i++) {
-		int addr = ext_boom_addr[i];
-		volatile struct boomgate *bg = shm + addr;
-		pthread_create(&boomgatethreads[ENTRANCES + i], NULL, closeboomgate, bg);
+		//int addr = ext_boom_addr[i];
+		bgexts[i] = &ext_boom_addr[i];
+		//pthread_create(&extboomgatethreads[i], NULL, closeboomgate, bgexts[i]);
+		ext_boom_addr[i]->s = 'C';
 		printf("TEST INIT 8 Part %d\n", i);
 	}
+
+	//joining threads
 	
 	for (int i = 0; i < LEVELS; i++) {
 		printf("TEST INIT 9 Part %d\n", i);
@@ -759,12 +835,30 @@ void init(){
 	for (int i = 0; i < LEVELS; i++) {
 		pthread_join(falarmsetthreads[i], NULL);
 	}
-	*/
+	
 	
 	for (int i = 0; i < LEVELS; i++) {
-		pthread_join(&LPRLevelsetthreads[i], NULL);
+		pthread_join(LPRLevelsetthreads[i], NULL);
+		free(argslvl[i]->str);
+	}
+	for (int i = 0; i < ENTRANCES; i++) {
+		pthread_join(LPREntsetthreads[i], NULL);
+		free(argsent[i]->str);
+
+	}
+	for (int i = 0; i < EXITS; i++) {
+		pthread_join(LPRExtsetthreads[i], NULL);
+		free(argsext[i]->str);
+
 	}
 	
+	/*
+	for (int i = 0; i < ENTRANCES; i++) {
+		pthread_join(entboomgatethreads[i], NULL);
+	}
+	for (int i = 0; i < EXITS; i++) {
+		pthread_join(extboomgatethreads[i], NULL);
+	}
 	/*
 	for (int i = 0; i < ENTRANCES + EXITS; i++) {
 		pthread_join(LPRExitsetthreads[i], NULL);
@@ -870,6 +964,17 @@ int main(int argc, int * argv){
 	//pthread_join(enterparkthread, NULL);
 
 	printf("TEST 4.5\n");
+	printf("ENT 1 BOOMGATE STATUS: %c\n", ent_boom_addr[0]->s);
+	printf("ENT 1 BOOMGATE ADDR %x\n",&ent_boom_addr[0]);
+	printf("ENT 1 LPR ADDR %x\n", &ent_lpr_addr[0]);
+	printf("ENT LPR BOOM SPACE %d\n", (int)&ent_boom_addr[0] - (int)&ent_lpr_addr[0]);
+
+	printf("Theoretical size %d\n", sizeof(LPR));
+	printf("LVL 2 TEMP SENSOR: %d\n", lvl_tmpalrm_addr[1]->tempsensor);
+	printf("LVL 3 FIRE ALARM STATUS: %d\n", lvl_tmpalrm_addr[2]->falarm);
+
+	//*openboomgate(ent_boom_addr[2]);
+	printf("ENT 3 BOOMGATE STATUS: %c\n", ent_boom_addr[2]->s);
 	//char *ptr = (char *)(shm + 88);
 	//printf("TEST 5\n");
 

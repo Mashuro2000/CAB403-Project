@@ -25,38 +25,47 @@ temp_alarm *lvl_tmpalrm_addr[EXITS];
 
 void init()
 {
-	// MAP memory spaces
 	// Initial memory space
-	if ((ent_lpr_addr[0] = mmap(0, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
-		perror("mmap");
+	if ((shm = mmap(0, SHMSZ, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap");
+
+	//if ((ent_lpr_addr[0] = mmap(0, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+	printf("ENT MEM: %d\n", ENT_GAP*0);
 
 	// MAP rest of entrances
-	for (int i = 0; i < ENTRANCES; i++)
-	{
-		if ((ent_lpr_addr[i] = mmap(ent_lpr_addr[0] + ENT_GAP * i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
-			perror("mmap");
-		if ((ent_boom_addr[i] = mmap(ent_lpr_addr[0] + sizeof(LPR) + ENT_GAP * i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
-			perror("mmap");
-		if ((ent_info_addr[i] = mmap(ent_lpr_addr[0] + sizeof(LPR) + sizeof(boomgate) + ENT_GAP * i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
-			perror("mmap");
+
+	for(int i = 0; i < ENTRANCES; i++){ //ent_lpr_addr[0] + 
+		//if ((ent_lpr_addr[i] = (LPR *)mmap(ENT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap");
+		ent_lpr_addr[i] = (LPR *)(shm + ENT_GAP*i);
+	}
+	for (int i = 0; i < ENTRANCES; i++){
+		//if ((ent_boom_addr[i] = (boomgate *)mmap(sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		//if ((ent_info_addr[i] = (infosign *)mmap(sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+
+		ent_boom_addr[i] = (boomgate *)(shm + sizeof(LPR) + ENT_GAP*i);
+		ent_info_addr[i] = (infosign *)(shm + sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i);
 	}
 
 	// map exits
-	for (int i = 0; i < EXITS; i++)
-	{
-		if ((ext_lpr_addr[i] = mmap(ent_lpr_addr[0] + EXT_OFFSET + EXT_GAP * i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
-			perror("mmap");
-		if ((ext_boom_addr[i] = mmap(ent_lpr_addr[0] + EXT_OFFSET + sizeof(LPR) + EXT_GAP * i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
-			perror("mmap");
+	for (int i = 0; i < EXITS; i++){
+		//if ((ext_lpr_addr[i] = (LPR *)mmap(EXT_OFFSET + EXT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		//if ((ext_boom_addr[i] = (boomgate *)mmap( EXT_OFFSET +sizeof(LPR) + EXT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap");
+		ext_lpr_addr[i] = (LPR *)(shm + EXT_OFFSET + EXT_GAP*i);
+		ext_boom_addr[i] = (boomgate *)(shm + EXT_OFFSET +sizeof(LPR) + EXT_GAP*i);
 	}
 
 	// map levels
-	for (int i = 0; i < LEVELS; i++)
-	{
-		if ((lvl_lpr_addr[i] = mmap(ent_lpr_addr[0] + LVL_OFFSET + LVL_GAP * i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
-			perror("mmap");
-		if ((lvl_tmpalrm_addr[i] = mmap(ent_lpr_addr[0] + LVL_OFFSET + sizeof(LPR) + LVL_GAP * i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1)
-			perror("mmap");
+	for (int i = 0; i < LEVELS; i++){
+		//if ((lvl_lpr_addr[i] = (LPR *)mmap( LVL_OFFSET + LVL_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		//if ((lvl_tmpalrm_addr[i] = (temp_alarm *)mmap( LVL_OFFSET + sizeof(LPR) + LVL_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 	
+		lvl_lpr_addr[i] = (LPR *)(shm + LVL_OFFSET + LVL_GAP*i);
+		lvl_tmpalrm_addr[i] = (temp_alarm*)(shm + LVL_OFFSET + sizeof(LPR) + LVL_GAP*i);
+		
+		printf("ENT LPR MEM: %d\n", &ent_lpr_addr[i]);
+		//printf("LPR SIZE %d\n", sizeof(LPR));
+		printf("ENT BOOM MEM %d: %d\n", i, &ent_boom_addr[i]);
+		printf("ENT INFO MEM %d: %d\n", i, &ent_info_addr[i]);
+		//printf("EXT LPR MEM: %d\n", &ent_lpr_addr[i]);
+		//printf("EXT BOOM MEM: %d\n", &ent_lpr_addr[i]);
 	}
 }
 
