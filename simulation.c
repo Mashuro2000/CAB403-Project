@@ -73,6 +73,10 @@ car_node *ext_queue[EXITS];
 pthread_mutex_t ext_qm[EXITS] = {PTHREAD_MUTEX_INITIALIZER};
 pthread_cond_t ext_qc[EXITS] = {PTHREAD_COND_INITIALIZER};
 
+// get random time
+int randtime(int min, int max) {
+  return rand()%(max-min);
+}
 
 // read in license plates from file
 void read_allowed_plates_from_file(){
@@ -188,13 +192,13 @@ void * generate_car(void * args) {
 
 	//printf("CAR GEN TEST 0\n");
 	
-	int entrance = ((int *)args);
+	int entrance = ((int*)args);
 	//printf("Entrance %d\n", entrance);
 	// wait random time before generating car
-	usleep(randtime(1, 100) * 10000); //TODO
+	usleep(randtime(1, 100) * 1000); //TODO
 	// Multiple threads for each entrance, handles each queue
-	//bool tf = (rand() % 2) != 0;
-	bool tf = true;
+	bool tf = (rand() % 2) != 0;
+	//bool tf = true;
 	
 	car_node * gen;
 	//printf("CAR GEN TEST 1\n");
@@ -338,7 +342,7 @@ void *exit_carpark(void * arg) {
     copy_plate(ext_lpr_addr[exit]->plate, ext_queue[exit]->lplate);
 	//print_plate(ext_lpr_addr[exit]->plate);
 	pthread_mutex_unlock(&ext_lpr_addr[exit]->m);
-
+	
 	//openboomgate and random sign for testing for testing (should be done by management system)
 	int lvl = rand() % (LEVELS + 1);
 
@@ -354,7 +358,7 @@ void *exit_carpark(void * arg) {
 	while(ent_boom_addr[exit]->s != 'O'){
 		//printf("Waiting on gate.. \n");
 	}
-	printf("GO!\n");
+	//printf("GO!\n");
 
 		
 	pthread_mutex_lock(&ext_qm[exit]);
@@ -421,15 +425,17 @@ void *enter_carpark(void * arg) {
 
 	//pthread_mutex_unlock(&ent_lpr_addr[entrance]->m);
 	pthread_mutex_lock(&ent_lpr_addr[entrance]->m);
+	pthread_mutex_lock(&ent_qm[entrance]);
 
     copy_plate(ent_lpr_addr[entrance]->plate, ent_queue[entrance]->lplate);
 	print_plate(ent_lpr_addr[entrance]->plate);
 	pthread_mutex_unlock(&ent_lpr_addr[entrance]->m);
+	pthread_mutex_unlock(&ent_qm[entrance]);
 
 	//openboomgate and random sign for testing for testing (should be done by management system)
 	int lvl = rand() % (LEVELS + 1);
 
-	pthread_mutex_unlock(&ent_info_addr[entrance]->m);
+	//pthread_mutex_unlock(&ent_info_addr[entrance]->m);
 	pthread_mutex_lock(&ent_info_addr[entrance]->m);
 	if (lvl == LEVELS + 1){
 		ent_info_addr[entrance]->display = 'X';
@@ -441,7 +447,7 @@ void *enter_carpark(void * arg) {
 	pthread_mutex_unlock((&ent_info_addr[entrance]->m));
 
 	if(ent_info_addr[entrance]->display == 'X'){
-		pthread_mutex_lock(&ent_qm[entrance]);
+		//pthread_mutex_lock(&ent_qm[entrance]);
 		car_node *del = ent_queue[entrance];
 		if(del->next == NULL){ent_queue[entrance] = NULL;}
 		else{
@@ -460,10 +466,10 @@ void *enter_carpark(void * arg) {
 	while(ent_boom_addr[entrance]->s != 'O'){
 		//printf("Waiting on gate.. \n");
 	}
-	printf("GO!\n");
+	//printf("GO!\n");
 
 
-	pthread_mutex_unlock(&ent_info_addr[entrance]->m);
+	//pthread_mutex_unlock(&ent_info_addr[entrance]->m);
 	pthread_mutex_lock(&ent_info_addr[entrance]->m);
 
 	lvl = ent_info_addr[entrance]->display;
@@ -472,6 +478,7 @@ void *enter_carpark(void * arg) {
 	if (followthesign <= 20){//follows sign approx 80% of time
 		lvl = rand() % (LEVELS); // choose random level
 	}
+	pthread_mutex_unlock(&ent_info_addr[entrance]->m);
 
 	
 	//add to cars parked queue on defined lvl
@@ -488,7 +495,7 @@ void *enter_carpark(void * arg) {
 
 	printf("EXIT TEST\n");
 	//remove car from entrance queue
-		
+	pthread_mutex_lock(&ent_qm[entrance]);
 	/*car_node * prevcar = ent_queue[entrance];
 	
 	if(prevcar == firstcar){
@@ -500,8 +507,8 @@ void *enter_carpark(void * arg) {
 		}
 	}
 	prevcar->next = NULL;
-	free(firstcar);*/
-	pthread_mutex_lock(&ent_qm[entrance]);
+	//free(firstcar);*/
+	
 	ent_queue[entrance] = delete_last(ent_queue);
 	pthread_mutex_unlock(&ent_qm[entrance]);
 
@@ -513,10 +520,6 @@ void *enter_carpark(void * arg) {
 	}
 }
 
-// get random time
-int randtime(int min, int max) {
-  return rand()%(max-min);
-}
 
 int parktime() {
   int value = randtime(100, 10000);
@@ -1008,85 +1011,11 @@ int main(int argc, int * argv){
     if ((shm_fd = shm_open("PARKING", O_CREAT | O_RDWR, 0666)) < 0) perror("shm_open");
 
 	ftruncate(shm_fd, SHMSZ);
-	//if ((shm = mmap(0, SHMSZ, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); //(volatile void *)
+
 
 	init();
 
-	printf("TEST1.5\n");
-	//init();
-	printf("TEST 2\n");
-
 	// Initialise srand()
-
-
-	// TESTING SECTION
-	// first value in linked list will be a initial value
-	/*
-	car_node firstcar;
-	car_node *head;
-	strcpy(firstcar.lplate, allowed_cars[0]);
-	firstcar.next = NULL;
-	head = &firstcar;
-	
-	
-	ent_queue[0] = (car_node *)malloc(sizeof(car_node));
-	*ent_queue[0]->lplate = (char *)malloc(sizeof(char)*6);
-	copy_plate(ent_queue[0]->lplate, allowed_cars[0]);
-	ent_queue[0]->next = NULL;
-	
-	for(int i = 1; i < ENTRANCES; i ++){
-		ent_queue[i] = NULL;
-	}
-	for(int i = 0; i < LEVELS; i++){
-		cars_parked[i] = NULL;
-	}
-
-	printf("LICENSE STORE 1 ");
-	print_plate(allowed_cars[0]);
-	printf("\n");
-	
-	
-	/*
-	struct two_addr *args = (struct two_addr *)malloc(sizeof(struct two_addr));
-	args->lpraddr = ent_lpr_addr + 0;
-	args->queueaddr = n;
-	*/
-/*
-	int *arg = (int *)malloc(sizeof(int));
-	*arg = 0;
-	//car_node * carptr = (car_node *)args->queueaddr;s
-	printf("TEST 2.5\n");
-
-	//printf("%s\n", carptr->lplate);
-	printf("TEST 3\n");
-
-	//enter_carpark(arg);
-	//strcpy((char *)(shm + 88), "000000");
-	//sprintf((shm+88), "%s", "000000");
-	printf("TEST4\n");
-	//pthread_join(enterparkthread, NULL);
-
-	printf("TEST 4.5\n");
-	printf("ENT 1 BOOMGATE STATUS: %c\n", ent_boom_addr[0]->s);
-	printf("ENT 1 BOOMGATE ADDR %x\n",&ent_boom_addr[0]);
-	printf("ENT 1 LPR ADDR %x\n", &ent_lpr_addr[0]);
-	printf("ENT LPR BOOM SPACE %d\n", (int)&ent_boom_addr[0] - (int)&ent_lpr_addr[0]);
-
-	printf("Theoretical size %d\n", sizeof(LPR));
-	printf("LVL 2 TEMP SENSOR: %d\n", lvl_tmpalrm_addr[1]->tempsensor);
-	printf("LVL 3 FIRE ALARM STATUS: %d\n", lvl_tmpalrm_addr[2]->falarm);
-
-	*openboomgate(ent_boom_addr[2]);
-	printf("ENT 3 BOOMGATE STATUS: %c\n", ent_boom_addr[2]->s);
-
-	*closeboomgate(ent_boom_addr[2]);
-	printf("ENT 3 BOOMGATE STATUS: %c\n", ent_boom_addr[2]->s);
-
-	for (int i = 0; i < ENTRANCES; i++){
-		printf("STATUS SIGN %d: %c\n", i, ent_info_addr[i]->display);
-	}*/
-	//char *ptr = (char *)(shm + 88);
-	//printf("TEST 5\n");
 
 	pthread_t tempsimthread[LEVELS];// = malloc(sizeof(pthread_t)*LEVELS);
 	for(int i = 0; i < LEVELS; i++){

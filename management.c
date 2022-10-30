@@ -226,17 +226,10 @@ htab carparklvls[LEVELS];
 // open and close boomgate functions
 void *openent_boomgate(void *arg)
 {
-<<<<<<< HEAD
-    struct boomgate *bg = arg;
-    pthread_mutex_lock(&bg->m);
-	//printf("MUTEX LOCKED, going to try raise gate\n");
-	//printf("GATE STAT %c\n", bg->s);
-=======
     int entrance_num = *(int*)arg;
     pthread_mutex_lock(&ent_boom_addr[entrance_num]->m);
 	printf("MUTEX LOCKED, going to try raise gate\n");
 	printf("GATE STAT %c\n", ent_boom_addr[entrance_num]->s);
->>>>>>> d5247a48e3515d6e7f064bfd5ef1d70a2a50fd21
     for (;;) {
 		if(ent_boom_addr[entrance_num]->s == 'C'){
 			ent_boom_addr[entrance_num]->s = 'R';
