@@ -282,13 +282,23 @@ void *openboomgate(void *arg)
 {
     struct boomgate *bg = arg;
     pthread_mutex_lock(&bg->m);
+	printf("MUTEX LOCKED, going to try raise gate\n");
+	printf("GATE STAT %c\n", bg->s);
     for (;;) {
-      if (bg->s == 'R') {
-        usleep(10 * 1000); //simulate 10ms of waiting for gate to open
-        bg->s = 'O';
-        pthread_cond_broadcast(&bg->c);
-      }
-      pthread_cond_wait(&bg->c, &bg->m);
+		if(bg->s == 'C'){
+			bg->s = 'R';
+		}
+		else if(bg->s == 'O'){
+			break;
+		}
+
+      	if (bg->s == 'R') {
+        	usleep(10 * 1000); //simulate 10ms of waiting for gate to open
+        	bg->s = 'O';
+        	pthread_cond_broadcast(&bg->c);
+		break;
+      	}
+      	pthread_cond_wait(&bg->c, &bg->m);
     }
 	pthread_mutex_unlock(&bg->m);
 } 
@@ -296,17 +306,24 @@ void *openboomgate(void *arg)
 void *closeboomgate(void *arg)
 {
     struct boomgate *bg = arg;
-					printf("BOOM GATE TEST 0\n");
-
     pthread_mutex_lock(&bg->m);
+	printf("MUTEX LOCKED, going to try lower gate\n");
+	printf("GATE STAT %c\n", bg->s);
     for (;;) {
-		printf("BOOM MUTEX LOCK\n");
-      if (bg->s == 'L') {
-        usleep(10 * 1000); //simulate 10ms of waiting for gate to close
-        bg->s = 'C';
-        pthread_cond_broadcast(&bg->c);
-      }
-      pthread_cond_wait(&bg->c, &bg->m);
+		if(bg->s == 'O'){
+			bg->s = 'L';
+		}
+		else if(bg->s == 'C'){
+			break;
+		}
+		
+      	if (bg->s == 'L') {
+        	usleep(10 * 1000); //simulate 10ms of waiting for gate to open
+        	bg->s = 'C';
+        	pthread_cond_broadcast(&bg->c);
+		break;
+      	}
+      	pthread_cond_wait(&bg->c, &bg->m);
     }
 	pthread_mutex_unlock(&bg->m);
 } 
@@ -973,7 +990,10 @@ int main(int argc, int * argv){
 	printf("LVL 2 TEMP SENSOR: %d\n", lvl_tmpalrm_addr[1]->tempsensor);
 	printf("LVL 3 FIRE ALARM STATUS: %d\n", lvl_tmpalrm_addr[2]->falarm);
 
-	//*openboomgate(ent_boom_addr[2]);
+	*openboomgate(ent_boom_addr[2]);
+	printf("ENT 3 BOOMGATE STATUS: %c\n", ent_boom_addr[2]->s);
+
+	*closeboomgate(ent_boom_addr[2]);
 	printf("ENT 3 BOOMGATE STATUS: %c\n", ent_boom_addr[2]->s);
 	//char *ptr = (char *)(shm + 88);
 	//printf("TEST 5\n");
