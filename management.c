@@ -13,7 +13,14 @@
 int shm_fd;
 volatile void *shm;
 
-lvl_count = 0; // should not exceed 20;
+
+struct car_num_count {
+	int count_lvl[5];
+	pthread_mutex_t m;
+	pthread_cond_t c;
+};
+typedef struct car_num_count car_num_count;
+
 
 LPR *ent_lpr_addr[ENTRANCES];
 boomgate *ent_boom_addr[ENTRANCES];
@@ -27,21 +34,19 @@ temp_alarm *lvl_tmpalrm_addr[EXITS];
 
 void init()
 {
-	// Initial memory space
+	
 	if ((shm = mmap(0, SHMSZ, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap");
 
-	//if ((ent_lpr_addr[0] = mmap(0, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-	printf("ENT MEM: %d\n", ENT_GAP*0);
+	
 
 	// MAP rest of entrances
 
 	for(int i = 0; i < ENTRANCES; i++){ //ent_lpr_addr[0] + 
-		//if ((ent_lpr_addr[i] = (LPR *)mmap(ENT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap");
+		
 		ent_lpr_addr[i] = (LPR *)(shm + ENT_GAP*i);
 	}
 	for (int i = 0; i < ENTRANCES; i++){
-		//if ((ent_boom_addr[i] = (boomgate *)mmap(sizeof(LPR) + ENT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		//if ((ent_info_addr[i] = (infosign *)mmap(sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
+		
 
 		ent_boom_addr[i] = (boomgate *)(shm + sizeof(LPR) + ENT_GAP*i);
 		ent_info_addr[i] = (infosign *)(shm + sizeof(LPR) + sizeof(boomgate) + ENT_GAP*i);
@@ -49,32 +54,25 @@ void init()
 
 	// map exits
 	for (int i = 0; i < EXITS; i++){
-		//if ((ext_lpr_addr[i] = (LPR *)mmap(EXT_OFFSET + EXT_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		//if ((ext_boom_addr[i] = (boomgate *)mmap( EXT_OFFSET +sizeof(LPR) + EXT_GAP*i, sizeof(boomgate), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap");
+		
 		ext_lpr_addr[i] = (LPR *)(shm + EXT_OFFSET + EXT_GAP*i);
 		ext_boom_addr[i] = (boomgate *)(shm + EXT_OFFSET +sizeof(LPR) + EXT_GAP*i);
 	}
 
 	// map levels
 	for (int i = 0; i < LEVELS; i++){
-		//if ((lvl_lpr_addr[i] = (LPR *)mmap( LVL_OFFSET + LVL_GAP*i, sizeof(LPR), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 
-		//if ((lvl_tmpalrm_addr[i] = (temp_alarm *)mmap( LVL_OFFSET + sizeof(LPR) + LVL_GAP*i, sizeof(infosign), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (void *)-1) perror("mmap"); 	
+		
 		lvl_lpr_addr[i] = (LPR *)(shm + LVL_OFFSET + LVL_GAP*i);
 		lvl_tmpalrm_addr[i] = (temp_alarm*)(shm + LVL_OFFSET + sizeof(LPR) + LVL_GAP*i);
 		
-		printf("ENT LPR MEM: %d\n", &ent_lpr_addr[i]);
-		//printf("LPR SIZE %d\n", sizeof(LPR));
-		printf("ENT BOOM MEM %d: %d\n", i, &ent_boom_addr[i]);
-		printf("ENT INFO MEM %d: %d\n", i, &ent_info_addr[i]);
-		//printf("EXT LPR MEM: %d\n", &ent_lpr_addr[i]);
-		//printf("EXT BOOM MEM: %d\n", &ent_lpr_addr[i]);
+
 	}
 
 	
 }
 
 char allowed_cars[NUM_ALLOW_CARS][PLATESIZE];
-
+car_num_count cars_on_lvl;
 typedef struct car car_t;
 
 struct car
@@ -92,7 +90,7 @@ typedef struct
 
 void print_car(car_t *i)
 {
-	printf("%s", i->lplate);
+	printf("%s\n", i->lplate);
 }
 
 bool htab_init(htab *h, size_t n)
@@ -123,16 +121,16 @@ car_t *htab_bucket(htab *h, char *key)
 	return h->buckets[htab_index(h, key)];
 }
 
-car_t *htab_find(htab *h, char *key)
+bool *htab_find(htab *h, char *key)
 {
 	for (car_t *i = htab_bucket(h, key); i != NULL; i = i->next)
 	{
 		if (strcmp(i->key, key) == 0)
 		{ // found the key
-			return i;
+			return true;
 		}
 	}
-	return NULL;
+	return false;
 }
 
 bool htab_add(htab *h, char *key, char *lplate)
@@ -223,55 +221,116 @@ void htab_destroy(htab *h)
 	h->size = 0;
 }
 
+htab carparklvls[LEVELS];
+
 // open and close boomgate functions
-void *openboomgate(void *arg)
+void *openent_boomgate(void *arg)
 {
+<<<<<<< HEAD
     struct boomgate *bg = arg;
     pthread_mutex_lock(&bg->m);
 	//printf("MUTEX LOCKED, going to try raise gate\n");
 	//printf("GATE STAT %c\n", bg->s);
+=======
+    int entrance_num = *(int*)arg;
+    pthread_mutex_lock(&ent_boom_addr[entrance_num]->m);
+	printf("MUTEX LOCKED, going to try raise gate\n");
+	printf("GATE STAT %c\n", ent_boom_addr[entrance_num]->s);
+>>>>>>> d5247a48e3515d6e7f064bfd5ef1d70a2a50fd21
     for (;;) {
-		if(bg->s == 'C'){
-			bg->s = 'R';
+		if(ent_boom_addr[entrance_num]->s == 'C'){
+			ent_boom_addr[entrance_num]->s = 'R';
 		}
-		else if(bg->s == 'O'){
+		else if(ent_boom_addr[entrance_num]->s == 'O'){
 			break;
 		}
 
-      	if (bg->s == 'R') {
+      	if (ent_boom_addr[entrance_num]->s == 'R') {
         	usleep(10 * 1000); //simulate 10ms of waiting for gate to open
-        	bg->s = 'O';
-        	pthread_cond_broadcast(&bg->c);
+        	ent_boom_addr[entrance_num]->s = 'O';
+        	pthread_cond_broadcast(&ent_boom_addr[entrance_num]->c);
 		break;
       	}
-      	pthread_cond_wait(&bg->c, &bg->m);
+      	pthread_cond_wait(&ent_boom_addr[entrance_num]->c, &ent_boom_addr[entrance_num]->m);
     }
-	pthread_mutex_unlock(&bg->m);
+	pthread_mutex_unlock(&ent_boom_addr[entrance_num]->m);
 } 
 
-void *closeboomgate(void *arg)
+void *openext_boomgate(void *arg)
 {
-    struct boomgate *bg = arg;
-    pthread_mutex_lock(&bg->m);
-	printf("MUTEX LOCKED, going to try lower gate\n");
-	printf("GATE STAT %c\n", bg->s);
+    int exit_num = *(int*)arg;
+    pthread_mutex_lock(&ext_boom_addr[exit_num]->m);
+	printf("MUTEX LOCKED, going to try raise gate\n");
+	printf("GATE STAT %c\n", ent_boom_addr[exit_num]->s);
     for (;;) {
-		if(bg->s == 'O'){
-			bg->s = 'L';
+		if(ext_boom_addr[exit_num]->s == 'C'){
+			ext_boom_addr[exit_num]->s = 'R';
 		}
-		else if(bg->s == 'C'){
+		else if(ext_boom_addr[exit_num]->s == 'O'){
+			break;
+		}
+
+      	if (ext_boom_addr[exit_num]->s == 'R') {
+        	usleep(10 * 1000); //simulate 10ms of waiting for gate to open
+        	ext_boom_addr[exit_num]->s = 'O';
+        	pthread_cond_broadcast(&ext_boom_addr[exit_num]->c);
+		break;
+      	}
+      	pthread_cond_wait(&ext_boom_addr[exit_num]->c, &ext_boom_addr[exit_num]->m);
+    }
+	pthread_mutex_unlock(&ext_boom_addr[exit_num]->m);
+} 
+
+void *closeent_boomgate(void *arg)
+{
+    int entrance_num = *(int *)arg;
+    pthread_mutex_lock(&ent_boom_addr[entrance_num]->m);
+	printf("MUTEX LOCKED, going to try lower gate\n");
+	printf("GATE STAT %c\n", ent_boom_addr[entrance_num]->s);
+    for (;;) {
+		if(ent_boom_addr[entrance_num]->s == 'O'){
+			ent_boom_addr[entrance_num]->s = 'L';
+			pthread_cond_broadcast(&ent_boom_addr[entrance_num]->c);
+		}
+		else if(ent_boom_addr[entrance_num]->s == 'C'){
 			break;
 		}
 		
-      	if (bg->s == 'L') {
+      	if (ent_boom_addr[entrance_num]->s == 'L') {
         	usleep(10 * 1000); //simulate 10ms of waiting for gate to open
-        	bg->s = 'C';
-        	pthread_cond_broadcast(&bg->c);
+        	ent_boom_addr[entrance_num]->s = 'C';
+        	pthread_cond_broadcast(&ent_boom_addr[entrance_num]->c);
 		break;
       	}
-      	pthread_cond_wait(&bg->c, &bg->m);
+      	pthread_cond_wait(&ent_boom_addr[entrance_num]->c, &ent_boom_addr[entrance_num]->m);
     }
-	pthread_mutex_unlock(&bg->m);
+	pthread_mutex_unlock(&ent_boom_addr[entrance_num]->m);
+} 
+
+void *closeexit_boomgate(void *arg)
+{
+    int exit_num = *(int *)arg;
+    pthread_mutex_lock(&ext_boom_addr[exit_num]->m);
+	printf("MUTEX LOCKED, going to try lower gate\n");
+	printf("GATE STAT %c\n", ext_boom_addr[exit_num]->s);
+    for (;;) {
+		if(ext_boom_addr[exit_num]->s == 'O'){
+			ext_boom_addr[exit_num]->s = 'L';
+			pthread_cond_broadcast(&ext_boom_addr[exit_num]->c);
+		}
+		else if(ext_boom_addr[exit_num]->s == 'C'){
+			break;
+		}
+		
+      	if (ext_boom_addr[exit_num]->s == 'L') {
+        	usleep(10 * 1000); //simulate 10ms of waiting for gate to close
+        	ext_boom_addr[exit_num]->s = 'C';
+        	pthread_cond_broadcast(&ext_boom_addr[exit_num]->c);
+		break;
+      	}
+      	pthread_cond_wait(&ext_boom_addr[exit_num]->c, &ext_boom_addr[exit_num]->m);
+    }
+	pthread_mutex_unlock(&ext_boom_addr[exit_num]->m);
 } 
 
 //parking billing is done by 5 cents for every millisecond car is at carpark from entering to exit
@@ -298,19 +357,13 @@ void billing(){
 
 void display()
 {
-	// number of vehicles on each level
-	// max capacity on each level
-	// current state of each LPR
-	// total billing revenue recorded by manager
-	// temp sensors
-
-	//Capacity number/20
 	printf("\n");
-	printf("Level 1 Capacity: %d/20 \n");
-	printf("Level 2 Capacity: %d/20 \n");
-	printf("Level 3 Capacity: %d/20 \n");
-	printf("Level 4 Capacity: %d/20 \n");
-	printf("Level 5 Capacity: %d/20 \n");
+	
+	for (int i = 0; i < LEVELS; i++)
+	{
+		printf("Level %d Capacity: %d/20 \n",i+1, cars_on_lvl.count_lvl[i]);
+	}
+	
 
 	//Entrance boom gate current status
 	printf("\n");
@@ -354,25 +407,21 @@ void display()
 // read in license plates from file
 void read_allowed_plates_from_file()
 {
-	FILE *fptr;
-	char ch;
+	FILE* fptr;
 
 	// open license plate files
 	fptr = fopen("plates.txt", "r");
 
-	if (fptr == NULL)
-	{
+	if (fptr == NULL){
 		printf("Authorised Plates File not Found - Simulation\n");
-	}
-	else{
-		printf("Authorised Plates File Found\n");
 	}
 
 	char tmp;
-	for (int i = 0; i < NUM_ALLOW_CARS; i++)
-	{
-		fgets(allowed_cars[i], PLATESIZE, fptr);
-		fgetc(fptr); // consume new line character
+	for (int i = 0; i < NUM_ALLOW_CARS; i++){
+		for(int j = 0; j < PLATESIZE; j++){
+			allowed_cars[i][j] = fgetc(fptr);
+		}
+		fgetc(fptr); //consume new line character
 	}
 	
 }
@@ -402,19 +451,50 @@ void cleanup()
 }
 
 void *checkLPR(void * arg) {
-	int entrance_num = *(int *)arg;
-
-	//ent_lpr_addr[entrance_num];
+	
+	int entrance_num = (int *)arg;
+	pthread_mutex_unlock(&ent_lpr_addr[entrance_num]->m);
+	pthread_mutex_lock(&ent_lpr_addr[entrance_num]->m);
+	for (int i = 0; i < NUM_ALLOW_CARS; i++)
+	{
+		//usleep(100);
+		char temp[6]; 
+		copy_plate(temp, allowed_cars[i]);
+		if (strcmp(temp,ent_lpr_addr[entrance_num]->plate) == 0)
+		{
+			if (htab_find(&carparklvls[entrance_num], temp))
+			{
+				break;
+			} else {
+				pthread_mutex_unlock(&cars_on_lvl.m);
+				pthread_mutex_lock(&cars_on_lvl.m);
+				cars_on_lvl.count_lvl[i]++;
+				pthread_cond_broadcast(&cars_on_lvl.c);
+				htab_add(&carparklvls[entrance_num],ent_lpr_addr[entrance_num]->plate,ent_lpr_addr[entrance_num]->plate);
+				pthread_cond_broadcast(&ent_lpr_addr[entrance_num]->c);
+				break;
+			}
+			
+		} else {
+			//printf("CAR NOT ALLOWED\n");
+			continue;
+		}
+		pthread_cond_wait(&ent_lpr_addr[entrance_num]->c,&ent_lpr_addr[entrance_num]->m);
+		pthread_cond_wait(&cars_on_lvl.c,&cars_on_lvl.m);
+	}
+	pthread_mutex_unlock(&ent_lpr_addr[entrance_num]->m);
+	
+	
 }
 
 int main(int argc, char **argv)
 {
-	htab carparklvls[LEVELS];
+	
 	// read in license plate file
 
 	// open shared memory
 	shm_fd = shm_open("PARKING", O_RDWR, 0666);
-	// shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+	
 	init();
 
 	// create hashtables for each level
@@ -422,23 +502,48 @@ int main(int argc, char **argv)
 	
 	for (int i = 0; i < LEVELS; i++)
 	{
-		if (!htab_init(&carparklvls, num_parks))
+		if (!htab_init(&carparklvls[i], num_parks))
     	{
         	printf("failed to initialise hash table\n");
         	return EXIT_FAILURE;
     	}
 
 	}
+	read_allowed_plates_from_file();
+
+
+
+	for (int i = 0; i < LEVELS; i++)
+	{
+		cars_on_lvl.count_lvl[i] = 0;
+	}
 	
 	
 	for(;;) {
 		display();
-	}
-	usleep(5000);
-	pthread_t checkentlprthread[LEVELS];
-	//billing();
-	// munmap((void *)shm, 2920);
 
+		//checking lpr and adding them to the hashtable data struct
+
+
+		
+		pthread_t checkLPRthread[LEVELS];
+		for (int i = 0; i < LEVELS; ++i)
+		{
+			if (pthread_create(&checkLPRthread[i], NULL, checkLPR, i) != 0) {
+				perror("Pthread error");
+				break;
+			}
+		}
+		
+		for (int i = 0; i < LEVELS; ++i)
+		{
+			if (pthread_join(checkLPRthread[i], NULL) != 0)
+        	{
+          		fprintf(stderr, "error: Cannot join thread # %d\n", i);
+        	}
+		}
+
+	}
 	
 
 	cleanup();
